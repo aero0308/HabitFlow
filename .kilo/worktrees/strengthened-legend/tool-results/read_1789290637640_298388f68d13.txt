@@ -1,0 +1,711 @@
+     1→"use client";
+     2→
+     3→import { useMemo } from "react";
+     4→import {
+     5→  BarChart,
+     6→  Bar,
+     7→  XAxis,
+     8→  YAxis,
+     9→  CartesianGrid,
+    10→  Tooltip,
+    11→  ResponsiveContainer,
+    12→  Cell,
+    13→} from "recharts";
+    14→import {
+    15→  ChevronLeft,
+    16→  Flame,
+    17→  Trophy,
+    18→  CheckCircle2,
+    19→  Target,
+    20→  Pencil,
+    21→  CalendarDays,
+    22→  BarChart3,
+    23→  StickyNote,
+    24→  CircleDashed,
+    25→  Snowflake,
+    26→} from "lucide-react";
+    27→import { format, parseISO, getDay } from "date-fns";
+    28→import { useHabitDetail } from "@/hooks/use-analytics";
+    29→import { useFreezeDay, useUnfreezeDay, useFreezes } from "@/hooks/use-habits";
+    30→import { useNav } from "@/lib/nav-store";
+    31→import { Button } from "@/components/ui/button";
+    32→import { Card } from "@/components/ui/card";
+    33→import { Badge } from "@/components/ui/badge";
+    34→import { Skeleton } from "@/components/ui/skeleton";
+    35→import { ScrollArea } from "@/components/ui/scroll-area";
+    36→import { cn } from "@/lib/utils";
+    37→
+    38→const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    39→const WEEKDAY_LABELS_LONG = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+    40→
+    41→function todayStr() {
+    42→  const d = new Date();
+    43→  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    44→}
+    45→
+    46→const tooltipStyle = {
+    47→  borderRadius: 8,
+    48→  fontSize: 12,
+    49→  border: "1px solid var(--border)",
+    50→  background: "var(--popover)",
+    51→  color: "var(--popover-foreground)",
+    52→  boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+    53→};
+    54→
+    55→function freqLabel(frequency: string, customDays: number[]): string {
+    56→  if (frequency === "daily") return "Every day";
+    57→  if (frequency === "weekly") return "Weekly";
+    58→  return `Custom · ${customDays.map((d) => WEEKDAYS[d]).join(", ") || "—"}`;
+    59→}
+    60→
+    61→/** Build GitHub-style week columns from the flat 90-day calendar array. */
+    62→function buildWeeks(
+    63→  calendar: { date: string; scheduled: boolean; count: number; targetCount: number; completed: boolean }[],
+    64→) {
+    65→  if (calendar.length === 0) return { weeks: [] as (typeof calendar[number] | null)[][], monthMarkers: [] as { col: number; label: string }[] };
+    66→
+    67→  const first = calendar[0];
+    68→  const firstMonFirst = (getDay(parseISO(first.date)) + 6) % 7;
+    69→
+    70→  // Flat list with leading null padding so the first column starts on Monday.
+    71→  const padded: (typeof calendar[number] | null)[] = [
+    72→    ...Array(firstMonFirst).fill(null),
+    73→    ...calendar,
+    74→  ];
+    75→
+    76→  // Group into 7-cell columns (each column = 1 week, Mon..Sun top→bottom).
+    77→  const weeks: (typeof calendar[number] | null)[][] = [];
+    78→  for (let i = 0; i < padded.length; i += 7) {
+    79→    weeks.push(padded.slice(i, i + 7));
+    80→  }
+    81→
+    82→  // Month markers: for each week column, find the first non-null entry and
+    83→  // show its month abbreviation if it differs from the previous column's month.
+    84→  const monthMarkers: { col: number; label: string }[] = [];
+    85→  let lastMonth = "";
+    86→  for (let col = 0; col < weeks.length; col++) {
+    87→    const firstEntry = weeks[col].find((c) => c !== null);
+    88→    if (!firstEntry) continue;
+    89→    const month = format(parseISO(firstEntry.date), "MMM");
+    90→    if (month !== lastMonth) {
+    91→      monthMarkers.push({ col, label: month });
+    92→      lastMonth = month;
+    93→    }
+    94→  }
+    95→
+    96→  return { weeks, monthMarkers };
+    97→}
+    98→
+    99→function cellColor(
+   100→  cell: { scheduled: boolean; completed: boolean } | null,
+   101→): string {
+   102→  if (!cell) return "bg-transparent";
+   103→  if (!cell.scheduled) return "bg-muted/40 dark:bg-muted/30";
+   104→  if (cell.completed) return "bg-emerald-600 dark:bg-emerald-500";
+   105→  return "bg-emerald-200 dark:bg-emerald-900";
+   106→}
+   107→
+   108→export function HabitDetailPage() {
+   109→  const { page, go } = useNav();
+   110→  const habitId = page.name === "habit" ? page.id : null;
+   111→  const { data, isLoading, isError } = useHabitDetail(habitId);
+   112→  const freezesQuery = useFreezes(habitId);
+   113→  const freezeMut = useFreezeDay();
+   114→  const unfreezeMut = useUnfreezeDay();
+   115→  const frozenDates = useMemo(
+   116→    () => new Set((freezesQuery.data ?? []).map((f) => f.date)),
+   117→    [freezesQuery.data],
+   118→  );
+   119→
+   120→  if (page.name !== "habit") return null;
+   121→
+   122→  if (isLoading) {
+   123→    return <HabitDetailSkeleton />;
+   124→  }
+   125→
+   126→  if (isError || !data) {
+   127→    return (
+   128→      <div className="space-y-6">
+   129→        <BackBar onBack={() => go({ name: "habits" })} />
+   130→        <Card className="p-10 text-center">
+   131→          <div className="mx-auto w-12 h-12 rounded-full bg-rose-500/10 flex items-center justify-center mb-4">
+   132→            <CircleDashed className="w-6 h-6 text-rose-500" />
+   133→          </div>
+   134→          <h3 className="text-lg font-semibold mb-1">Habit not found</h3>
+   135→          <p className="text-sm text-muted-foreground mb-4">
+   136→            This habit may have been deleted, or you don&apos;t have access to it.
+   137→          </p>
+   138→          <Button onClick={() => go({ name: "habits" })}>Back to habits</Button>
+   139→        </Card>
+   140→      </div>
+   141→    );
+   142→  }
+   143→
+   144→  const { habit, streak, calendar, weekly, dayOfWeek, recentCheckins } = data;
+   145→  const { weeks, monthMarkers } = buildWeeks(calendar);
+   146→
+   147→  const today = todayStr();
+   148→  const todayEntry = calendar.find((c) => c.date === today);
+   149→  const todayScheduled = todayEntry?.scheduled ?? false;
+   150→  const todayCompleted = todayEntry?.completed ?? false;
+   151→  const todayFrozen = frozenDates.has(today);
+   152→  const canFreezeToday = todayScheduled && !todayCompleted && !todayFrozen;
+   153→  const canUnfreezeToday = todayFrozen;
+   154→
+   155→  const weeklyData = weekly.map((w) => ({
+   156→    ...w,
+   157→    label: format(parseISO(w.weekStart), "MMM d"),
+   158→  }));
+   159→
+   160→  // Normalize day-of-week into a 7-cell array (Mon-first).
+   161→  const byIdx = new Map<number, { day: number; completed: number; scheduled: number; pct: number }>();
+   162→  for (const d of dayOfWeek) byIdx.set(d.day, d);
+   163→  const dowArr = Array.from({ length: 7 }, (_, i) =>
+   164→    byIdx.get(i) ?? { day: i, completed: 0, scheduled: 0, pct: 0 },
+   165→  );
+   166→
+   167→  const bestDayIdx = (() => {
+   168→    let best = -1;
+   169→    let bestPct = -1;
+   170→    for (const d of dowArr) {
+   171→      if (d.scheduled === 0) continue;
+   172→      if (d.pct > bestPct) {
+   173→        bestPct = d.pct;
+   174→        best = d.day;
+   175→      }
+   176→    }
+   177→    return best;
+   178→  })();
+   179→
+   180→  return (
+   181→    <div className="space-y-6">
+   182→      <BackBar onBack={() => go({ name: "habits" })} />
+   183→
+   184→      {/* Header */}
+   185→      <div className="flex items-start gap-4 flex-wrap">
+   186→        <div
+   187→          className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl flex-shrink-0"
+   188→          style={{ backgroundColor: habit.color + "20" }}
+   189→        >
+   190→          {habit.icon}
+   191→        </div>
+   192→        <div className="flex-1 min-w-0">
+   193→          <h1 className="text-2xl font-bold tracking-tight break-words">{habit.name}</h1>
+   194→          {habit.description && (
+   195→            <p className="text-sm text-muted-foreground mt-1">{habit.description}</p>
+   196→          )}
+   197→          <div className="flex items-center gap-2 mt-2 flex-wrap">
+   198→            <Badge variant="outline" className="text-[11px] py-0.5 px-2 font-normal">
+   199→              {freqLabel(habit.frequency, habit.customDays)}
+   200→            </Badge>
+   201→            <Badge variant="secondary" className="text-[11px] py-0.5 px-2 gap-1">
+   202→              <Target className="w-3 h-3" />
+   203→              {habit.targetCount}/day
+   204→            </Badge>
+   205→            <Badge variant="secondary" className="text-[11px] py-0.5 px-2 gap-1">
+   206→              {(habit as { timeOfDay?: string }).timeOfDay === "MORNING" ? "🌅" : (habit as { timeOfDay?: string }).timeOfDay === "AFTERNOON" ? "☀" : (habit as { timeOfDay?: string }).timeOfDay === "EVENING" ? "🌙" : "🌤"}
+   207→              {" "}
+   208→              {(habit as { timeOfDay?: string }).timeOfDay === "MORNING" ? "Morning" : (habit as { timeOfDay?: string }).timeOfDay === "AFTERNOON" ? "Afternoon" : (habit as { timeOfDay?: string }).timeOfDay === "EVENING" ? "Evening" : "Any Time"}
+   209→            </Badge>
+   210→            <Badge variant="secondary" className="text-[11px] py-0.5 px-2">
+   211→              Since {format(parseISO(habit.startDate), "MMM d, yyyy")}
+   212→            </Badge>
+   213→          </div>
+   214→        </div>
+   215→        <Button variant="outline" size="sm" onClick={() => go({ name: "habits" })}>
+   216→          <Pencil className="w-4 h-4 mr-1" /> Edit
+   217→        </Button>
+   218→      </div>
+   219→
+   220→      {/* Streak summary cards */}
+   221→      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+   222→        <StatCard
+   223→          icon={Flame}
+   224→          label="Current streak"
+   225→          value={`${streak.currentStreak}`}
+   226→          unit="days"
+   227→          color="text-orange-500"
+   228→          bg="bg-orange-500/10"
+   229→        />
+   230→        <StatCard
+   231→          icon={Trophy}
+   232→          label="Longest streak"
+   233→          value={`${streak.longestStreak}`}
+   234→          unit="days"
+   235→          color="text-amber-500"
+   236→          bg="bg-amber-500/10"
+   237→        />
+   238→        <StatCard
+   239→          icon={CheckCircle2}
+   240→          label="Total completions"
+   241→          value={`${streak.totalCompletions}`}
+   242→          unit="check-ins"
+   243→          color="text-emerald-600"
+   244→          bg="bg-emerald-500/10"
+   245→        />
+   246→        <StatCard
+   247→          icon={Target}
+   248→          label="Completion rate"
+   249→          value={`${streak.completionRate}`}
+   250→          unit="%"
+   251→          color="text-teal-600"
+   252→          bg="bg-teal-500/10"
+   253→        />
+   254→      </div>
+   255→
+   256→      {/* 90-day GitHub-style heatmap */}
+   257→      <Card className="p-6">
+   258→        <div className="flex items-start gap-3 mb-5">
+   259→          <div className="w-9 h-9 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
+   260→            <CalendarDays className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+   261→          </div>
+   262→          <div>
+   263→            <div className="font-semibold leading-tight">Activity (last 90 days)</div>
+   264→            <div className="text-xs text-muted-foreground mt-0.5">
+   265→              Each square is a day. Green = completed, light = scheduled but missed.
+   266→            </div>
+   267→          </div>
+   268→        </div>
+   269→
+   270→        <div className="grid lg:grid-cols-[1fr_auto] gap-6 items-start">
+   271→          {/* Heatmap */}
+   272→          <div className="overflow-x-auto pb-2 -mx-1 px-1">
+   273→            <div className="inline-flex flex-col gap-1 min-w-max">
+   274→              {/* Month labels row */}
+   275→              <div className="flex gap-[3px] mb-1 pl-7">
+   276→                {weeks.map((_, col) => {
+   277→                  const marker = monthMarkers.find((m) => m.col === col);
+   278→                  return (
+   279→                    <div
+   280→                      key={col}
+   281→                      className="w-[14px] text-[10px] text-muted-foreground font-medium"
+   282→                      style={{ minWidth: 14 }}
+   283→                    >
+   284→                      {marker ? marker.label : ""}
+   285→                    </div>
+   286→                  );
+   287→                })}
+   288→              </div>
+   289→
+   290→              {/* Day-of-week label column + cells */}
+   291→              <div className="flex gap-1">
+   292→                <div className="flex flex-col gap-[3px] pr-1">
+   293→                  {WEEKDAYS.map((d, i) => (
+   294→                    <div
+   295→                      key={d}
+   296→                      className={cn(
+   297→                        "text-[10px] leading-[14px] text-muted-foreground text-right pr-1",
+   298→                        i % 2 === 1 && "opacity-0",
+   299→                      )}
+   300→                      style={{ height: 14 }}
+   301→                    >
+   302→                      {d}
+   303→                    </div>
+   304→                  ))}
+   305→                </div>
+   306→
+   307→                {weeks.map((week, col) => (
+   308→                  <div key={col} className="flex flex-col gap-[3px]">
+   309→                    {Array.from({ length: 7 }).map((_, row) => {
+   310→                      const cell = week[row] ?? null;
+   311→                      if (!cell) {
+   312→                        return (
+   313→                          <div
+   314→                            key={row}
+   315→                            className="w-[14px] h-[14px] rounded-[2px] bg-transparent"
+   316→                          />
+   317→                        );
+   318→                      }
+   319→                      const isFrozen = frozenDates.has(cell.date);
+   320→                      const dateFmt = format(parseISO(cell.date), "EEEE, MMM d, yyyy");
+   321→                      const statusText = isFrozen
+   322→                        ? "Frozen — streak protected"
+   323→                        : !cell.scheduled
+   324→                          ? "Not scheduled"
+   325→                          : cell.completed
+   326→                            ? `Completed (${cell.count}/${cell.targetCount})`
+   327→                            : `Missed (${cell.count}/${cell.targetCount})`;
+   328→                      return (
+   329→                        <div
+   330→                          key={row}
+   331→                          title={`${dateFmt} — ${statusText}`}
+   332→                          className={cn(
+   333→                            "w-[14px] h-[14px] rounded-[2px] transition-transform hover:scale-110",
+   334→                            isFrozen
+   335→                              ? "bg-sky-400 dark:bg-sky-700 ring-2 ring-sky-400 dark:ring-sky-500"
+   336→                              : cn("hover:ring-1 hover:ring-emerald-400", cellColor(cell)),
+   337→                          )}
+   338→                        />
+   339→                      );
+   340→                    })}
+   341→                  </div>
+   342→                ))}
+   343→              </div>
+   344→            </div>
+   345→          </div>
+   346→
+   347→          {/* Stats summary panel */}
+   348→          <div className="flex flex-col gap-3 min-w-[180px]">
+   349→            <div className="rounded-lg border border-border/60 p-3 bg-muted/30">
+   350→              <div className="text-xs text-muted-foreground mb-1">90-day summary</div>
+   351→              <div className="space-y-2">
+   352→                <div className="flex items-center justify-between">
+   353→                  <span className="text-xs text-muted-foreground">Completed</span>
+   354→                  <span className="text-sm font-semibold tabular-nums">
+   355→                    {data.calendar.filter((d) => d.completed).length}
+   356→                    <span className="text-muted-foreground font-normal"> / {data.calendar.filter((d) => d.scheduled).length}</span>
+   357→                  </span>
+   358→                </div>
+   359→                <div className="flex items-center justify-between">
+   360→                  <span className="text-xs text-muted-foreground">Completion rate</span>
+   361→                  <span className="text-sm font-semibold tabular-nums">
+   362→                    {data.calendar.filter((d) => d.scheduled).length === 0
+   363→                      ? 0
+   364→                      : Math.round((data.calendar.filter((d) => d.completed).length / data.calendar.filter((d) => d.scheduled).length) * 100)}%
+   365→                  </span>
+   366→                </div>
+   367→                <div className="flex items-center justify-between">
+   368→                  <span className="text-xs text-muted-foreground">Frozen days</span>
+   369→                  <span className="text-sm font-semibold tabular-nums text-sky-500">
+   370→                    {frozenDates.size}
+   371→                  </span>
+   372→                </div>
+   373→                <div className="flex items-center justify-between">
+   374→                  <span className="text-xs text-muted-foreground">Current streak</span>
+   375→                  <span className="text-sm font-semibold tabular-nums text-orange-500">
+   376→                    {data.streak.currentStreak}d
+   377→                  </span>
+   378→                </div>
+   379→                <div className="flex items-center justify-between">
+   380→                  <span className="text-xs text-muted-foreground">Longest streak</span>
+   381→                  <span className="text-sm font-semibold tabular-nums text-amber-500">
+   382→                    {data.streak.longestStreak}d
+   383→                  </span>
+   384→                </div>
+   385→              </div>
+   386→            </div>
+   387→            <div className="flex items-center justify-end gap-1.5 text-[10px] text-muted-foreground">
+   388→              <span>Less</span>
+   389→              <div className="w-3 h-3 rounded-[2px] bg-muted/40 dark:bg-muted/30" />
+   390→              <div className="w-3 h-3 rounded-[2px] bg-emerald-200 dark:bg-emerald-900" />
+   391→              <div className="w-3 h-3 rounded-[2px] bg-emerald-600 dark:bg-emerald-500" />
+   392→              <span>More</span>
+   393→            </div>
+   394→          </div>
+   395→        </div>
+   396→      </Card>
+   397→
+   398→      {/* Streak freeze */}
+   399→      {(canFreezeToday || canUnfreezeToday) && (
+   400→        <Card className="p-4 border-sky-200 dark:border-sky-800/60 bg-sky-50/40 dark:bg-sky-950/20">
+   401→          <div className="flex items-center gap-3 flex-wrap">
+   402→            <div className="w-9 h-9 rounded-lg bg-sky-100 dark:bg-sky-900/50 flex items-center justify-center flex-shrink-0">
+   403→              <Snowflake className="w-4 h-4 text-sky-500 dark:text-sky-300" />
+   404→            </div>
+   405→            <div className="flex-1 min-w-0">
+   406→              <div className="text-sm font-medium">Streak freeze</div>
+   407→              <div className="text-xs text-muted-foreground mt-0.5">
+   408→                Freezing a day protects your streak when you can&apos;t complete a habit (like when sick or traveling).
+   409→              </div>
+   410→            </div>
+   411→            {canFreezeToday && (
+   412→              <Button
+   413→                variant="outline"
+   414→                size="sm"
+   415→                className="border-sky-300 dark:border-sky-700 text-sky-600 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-sky-900/30"
+   416→                disabled={freezeMut.isPending}
+   417→                onClick={() => {
+   418→                  if (!habitId) return;
+   419→                  freezeMut.mutate(
+   420→                    { habitId, date: today },
+   421→                    { onSuccess: () => void freezesQuery.refetch() },
+   422→                  );
+   423→                }}
+   424→              >
+   425→                <Snowflake className="w-4 h-4 mr-1" />
+   426→                Freeze today
+   427→              </Button>
+   428→            )}
+   429→            {canUnfreezeToday && (
+   430→              <Button
+   431→                variant="outline"
+   432→                size="sm"
+   433→                className="border-sky-300 dark:border-sky-700 text-sky-600 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-sky-900/30"
+   434→                disabled={unfreezeMut.isPending}
+   435→                onClick={() => {
+   436→                  if (!habitId) return;
+   437→                  unfreezeMut.mutate(
+   438→                    { habitId, date: today },
+   439→                    { onSuccess: () => void freezesQuery.refetch() },
+   440→                  );
+   441→                }}
+   442→              >
+   443→                Unfreeze
+   444→              </Button>
+   445→            )}
+   446→          </div>
+   447→        </Card>
+   448→      )}
+   449→
+   450→      {/* Weekly chart + day-of-week breakdown */}
+   451→      <div className="grid gap-4 lg:grid-cols-2">
+   452→        <Card className="p-6">
+   453→          <div className="flex items-start gap-3">
+   454→            <div className="w-9 h-9 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
+   455→              <BarChart3 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+   456→            </div>
+   457→            <div>
+   458→              <div className="font-semibold leading-tight">Weekly completion</div>
+   459→              <div className="text-xs text-muted-foreground mt-0.5">Last 12 weeks · % of scheduled days</div>
+   460→            </div>
+   461→          </div>
+   462→          <div className="h-[260px] mt-4 -ml-2">
+   463→            <ResponsiveContainer width="100%" height="100%">
+   464→              <BarChart data={weeklyData} margin={{ top: 8, right: 4, left: -20, bottom: 0 }}>
+   465→                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+   466→                <XAxis
+   467→                  dataKey="label"
+   468→                  tick={{ fontSize: 9, fill: "var(--muted-foreground)" }}
+   469→                  tickLine={false}
+   470→                  axisLine={false}
+   471→                  interval={"preserveStartEnd"}
+   472→                  angle={-40}
+   473→                  textAnchor="end"
+   474→                  height={60}
+   475→                  minTickGap={4}
+   476→                />
+   477→                <YAxis
+   478→                  domain={[0, 100]}
+   479→                  tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
+   480→                  tickLine={false}
+   481→                  axisLine={false}
+   482→                  width={32}
+   483→                  unit="%"
+   484→                />
+   485→                <Tooltip
+   486→                  contentStyle={tooltipStyle}
+   487→                  cursor={{ fill: "var(--muted)", fillOpacity: 0.4 }}
+   488→                  formatter={(_value, _name, item) => {
+   489→                    const d = item?.payload as { completed: number; scheduled: number; pct: number } | undefined;
+   490→                    return [`${d?.completed ?? 0}/${d?.scheduled ?? 0} (${d?.pct ?? 0}%)`, "Completed"];
+   491→                  }}
+   492→                  labelFormatter={(label) => `Week of ${label}`}
+   493→                />
+   494→                <Bar dataKey="pct" radius={[4, 4, 0, 0]} maxBarSize={36}>
+   495→                  {weeklyData.map((_, i) => (
+   496→                    <Cell key={i} fill={habit.color} />
+   497→                  ))}
+   498→                </Bar>
+   499→              </BarChart>
+   500→            </ResponsiveContainer>
+   501→          </div>
+   502→        </Card>
+   503→
+   504→        <Card className="p-6">
+   505→          <div className="flex items-start gap-3">
+   506→            <div className="w-9 h-9 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
+   507→              <Trophy className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+   508→            </div>
+   509→            <div>
+   510→              <div className="font-semibold leading-tight">Day-of-week breakdown</div>
+   511→              <div className="text-xs text-muted-foreground mt-0.5">Completion rate per weekday (all-time)</div>
+   512→            </div>
+   513→          </div>
+   514→
+   515→          <div className="mt-5 grid grid-cols-4 sm:grid-cols-7 gap-1.5 sm:gap-2">
+   516→            {dowArr.map((d, i) => {
+   517→              const ratio = d.scheduled === 0 ? 0 : d.completed / d.scheduled;
+   518→              const isBest = d.day === bestDayIdx;
+   519→              return (
+   520→                <div
+   521→                  key={i}
+   522→                  className={cn(
+   523→                    "rounded-lg p-1.5 sm:p-2 flex flex-col items-center justify-center text-center aspect-[3/4] sm:aspect-[3/4] transition-all",
+   524→                    d.scheduled === 0
+   525→                      ? "bg-muted/30"
+   526→                      : ratio === 0
+   527→                        ? "bg-muted/60 dark:bg-muted/40"
+   528→                        : ratio < 0.34
+   529→                          ? "bg-emerald-200 dark:bg-emerald-900"
+   530→                          : ratio < 0.67
+   531→                            ? "bg-emerald-400 dark:bg-emerald-700"
+   532→                            : ratio < 1
+   533→                              ? "bg-emerald-500 dark:bg-emerald-600"
+   534→                              : "bg-emerald-600 dark:bg-emerald-500",
+   535→                    isBest && "ring-2 ring-amber-400 ring-offset-1 ring-offset-background",
+   536→                  )}
+   537→                >
+   538→                  <div className={cn("text-[9px] sm:text-[10px] font-medium uppercase tracking-wide", ratio >= 0.34 && d.scheduled > 0 ? "text-white" : "text-foreground")}>
+   539→                    {WEEKDAYS[d.day]}
+   540→                  </div>
+   541→                  <div className={cn("text-xs sm:text-base font-bold mt-1", ratio >= 0.34 && d.scheduled > 0 ? "text-white" : "text-foreground")}>
+   542→                    {d.scheduled === 0 ? "—" : `${d.pct}%`}
+   543→                  </div>
+   544→                  <div className={cn("text-[8px] sm:text-[9px] mt-0.5", ratio >= 0.34 && d.scheduled > 0 ? "text-white/80" : "text-muted-foreground")}>
+   545→                    {d.scheduled === 0 ? "n/a" : `${d.completed}/${d.scheduled}`}
+   546→                  </div>
+   547→                  <div className="h-3 mt-1 flex items-center justify-center">
+   548→                    {isBest && <Trophy className="w-3 h-3 text-amber-300" />}
+   549→                  </div>
+   550→                </div>
+   551→              );
+   552→            })}
+   553→          </div>
+   554→          <p className="text-[11px] text-muted-foreground mt-3">
+   555→            Hover any cell for details. <span className="text-foreground font-medium">{WEEKDAY_LABELS_LONG[bestDayIdx] ?? "—"}</span> is your strongest day.
+   556→          </p>
+   557→        </Card>
+   558→      </div>
+   559→
+   560→      {/* Recent check-ins */}
+   561→      <Card className="p-6">
+   562→        <div className="flex items-start gap-3">
+   563→          <div className="w-9 h-9 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
+   564→            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+   565→          </div>
+   566→          <div>
+   567→            <div className="font-semibold leading-tight">Recent check-ins</div>
+   568→            <div className="text-xs text-muted-foreground mt-0.5">Last {recentCheckins.length} entries</div>
+   569→          </div>
+   570→        </div>
+   571→
+   572→        {recentCheckins.length === 0 ? (
+   573→          <div className="mt-4 py-8 text-center text-sm text-muted-foreground">
+   574→            No check-ins yet. Mark this habit done to start your streak!
+   575→          </div>
+   576→        ) : (
+   577→          <div className="mt-4 max-h-64 overflow-y-auto custom-scroll pr-2">
+   578→            <div className="space-y-1.5 pr-2">
+   579→              {recentCheckins
+   580→                .slice()
+   581→                .reverse()
+   582→                .map((c) => {
+   583→                  const target = habit.targetCount;
+   584→                  const completed = c.count >= target;
+   585→                  return (
+   586→                    <div
+   587→                      key={c.id}
+   588→                      className="flex items-center gap-3 p-2.5 rounded-lg border border-border/60 hover:bg-muted/40 transition-colors"
+   589→                    >
+   590→                      <div className="w-10 h-10 rounded-lg bg-muted/50 flex flex-col items-center justify-center flex-shrink-0">
+   591→                        <span className="text-[10px] font-medium leading-none text-muted-foreground uppercase">
+   592→                          {format(parseISO(c.date), "MMM")}
+   593→                        </span>
+   594→                        <span className="text-sm font-bold leading-none mt-0.5">
+   595→                          {format(parseISO(c.date), "d")}
+   596→                        </span>
+   597→                      </div>
+   598→                      <div className="flex-1 min-w-0">
+   599→                        <div className="text-sm font-medium">
+   600→                          {format(parseISO(c.date), "EEEE, MMM d, yyyy")}
+   601→                        </div>
+   602→                        {c.note && (
+   603→                          <div className="flex items-center gap-1 mt-0.5 text-xs text-muted-foreground">
+   604→                            <StickyNote className="w-3 h-3 flex-shrink-0" />
+   605→                            <span className="truncate">{c.note}</span>
+   606→                          </div>
+   607→                        )}
+   608→                      </div>
+   609→                      <Badge
+   610→                        variant={completed ? "default" : "secondary"}
+   611→                        className={cn(
+   612→                          "text-[11px] py-0.5 px-2 tabular-nums",
+   613→                          completed && "bg-emerald-600 hover:bg-emerald-700 text-white",
+   614→                        )}
+   615→                      >
+   616→                        {c.count}/{target}
+   617→                      </Badge>
+   618→                    </div>
+   619→                  );
+   620→                })}
+   621→            </div>
+   622→          </div>
+   623→        )}
+   624→      </Card>
+   625→    </div>
+   626→  );
+   627→}
+   628→
+   629→function BackBar({ onBack }: { onBack: () => void }) {
+   630→  return (
+   631→    <Button variant="ghost" size="sm" onClick={onBack} className="text-muted-foreground hover:text-foreground -ml-2">
+   632→      <ChevronLeft className="w-4 h-4" /> Back to habits
+   633→    </Button>
+   634→  );
+   635→}
+   636→
+   637→function StatCard({
+   638→  icon: Icon,
+   639→  label,
+   640→  value,
+   641→  unit,
+   642→  color,
+   643→  bg,
+   644→}: {
+   645→  icon: typeof Flame;
+   646→  label: string;
+   647→  value: string;
+   648→  unit: string;
+   649→  color: string;
+   650→  bg: string;
+   651→}) {
+   652→  return (
+   653→    <Card className="p-4 flex flex-col items-center justify-center gap-2 text-center">
+   654→      <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0", bg)}>
+   655→        <Icon className={cn("w-5 h-5", color)} />
+   656→      </div>
+   657→      <div className="flex flex-col items-center justify-center">
+   658→        <div className="flex items-baseline gap-1 leading-none">
+   659→          <span className="text-2xl font-bold tabular-nums">{value}</span>
+   660→          <span className="text-[11px] text-muted-foreground">{unit}</span>
+   661→        </div>
+   662→        <div className="text-xs text-muted-foreground leading-none mt-1">{label}</div>
+   663→      </div>
+   664→    </Card>
+   665→  );
+   666→}
+   667→
+   668→function HabitDetailSkeleton() {
+   669→  return (
+   670→    <div className="space-y-6">
+   671→      <Skeleton className="h-6 w-36" />
+   672→      <div className="flex items-start gap-4">
+   673→        <Skeleton className="h-14 w-14 rounded-xl" />
+   674→        <div className="flex-1 space-y-2">
+   675→          <Skeleton className="h-7 w-48" />
+   676→          <Skeleton className="h-3 w-72" />
+   677→          <div className="flex gap-2">
+   678→            <Skeleton className="h-5 w-24 rounded-md" />
+   679→            <Skeleton className="h-5 w-20 rounded-md" />
+   680→          </div>
+   681→        </div>
+   682→      </div>
+   683→      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+   684→        {[1, 2, 3, 4].map((i) => (
+   685→          <Skeleton key={i} className="h-20 rounded-xl" />
+   686→        ))}
+   687→      </div>
+   688→      <Card className="p-6">
+   689→        <Skeleton className="h-9 w-48" />
+   690→        <Skeleton className="h-32 w-full mt-4" />
+   691→      </Card>
+   692→      <div className="grid gap-4 lg:grid-cols-2">
+   693→        {[1, 2].map((i) => (
+   694→          <Card key={i} className="p-6">
+   695→            <Skeleton className="h-9 w-48" />
+   696→            <Skeleton className="h-[260px] w-full mt-4" />
+   697→          </Card>
+   698→        ))}
+   699→      </div>
+   700→      <Card className="p-6">
+   701→        <Skeleton className="h-9 w-48" />
+   702→        <div className="mt-4 space-y-2">
+   703→          {[1, 2, 3, 4, 5].map((i) => (
+   704→            <Skeleton key={i} className="h-14 w-full rounded-lg" />
+   705→          ))}
+   706→        </div>
+   707→      </Card>
+   708→    </div>
+   709→  );
+   710→}
+   711→

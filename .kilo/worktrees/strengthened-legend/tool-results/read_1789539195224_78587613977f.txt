@@ -1,0 +1,714 @@
+     1→"use client";
+     2→
+     3→import { useState, useRef, useEffect } from "react";
+     4→import { useTheme } from "next-themes";
+     5→import { useForm } from "react-hook-form";
+     6→import { zodResolver } from "@hookform/resolvers/zod";
+     7→import { z } from "zod";
+     8→import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+     9→import { User as UserIcon, Bell, LogOut, Loader2, Mail, Camera, Sun, Moon, Laptop, Save } from "lucide-react";
+    10→import { useAuth } from "@/features/auth/auth-context";
+    11→import { api } from "@/api/client";
+    12→import { Button } from "@/components/ui/button";
+    13→import { Card } from "@/components/ui/card";
+    14→import { Input } from "@/components/ui/input";
+    15→import { Label } from "@/components/ui/label";
+    16→import { Switch } from "@/components/ui/switch";
+    17→import { Skeleton } from "@/components/ui/skeleton";
+    18→import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+    19→import {
+    20→  AlertDialog,
+    21→  AlertDialogAction,
+    22→  AlertDialogCancel,
+    23→  AlertDialogContent,
+    24→  AlertDialogDescription,
+    25→  AlertDialogFooter,
+    26→  AlertDialogHeader,
+    27→  AlertDialogTitle,
+    28→} from "@/components/ui/alert-dialog";
+    29→import { Download, Database as DatabaseIcon, Upload, HelpCircle, Sparkles } from "lucide-react";
+    30→import { toast } from "sonner";
+    31→import { resetTour } from "@/components/shared/onboarding-tour";
+    32→import { useNav } from "@/lib/nav-store";
+    33→import { DangerZone } from "@/features/settings/DangerZone";
+    34→import { TimeOfDaySettings } from "@/features/settings/TimeOfDaySettings";
+    35→import { cn } from "@/lib/utils";
+    36→
+    37→const profileSchema = z.object({
+    38→  name: z.string().min(1, "Name is required").max(80),
+    39→});
+    40→
+    41→type ProfileForm = z.infer<typeof profileSchema>;
+    42→
+    43→export function SettingsPage() {
+    44→  const { user, logout } = useAuth();
+    45→  const qc = useQueryClient();
+    46→  const { go } = useNav();
+    47→  const { theme, setTheme } = useTheme();
+    48→  const [logoutOpen, setLogoutOpen] = useState(false);
+    49→  const [exporting, setExporting] = useState(false);
+    50→  const [importing, setImporting] = useState(false);
+    51→  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+    52→  const [firstNameDraft, setFirstNameDraft] = useState("");
+    53→  const [lastNameDraft, setLastNameDraft] = useState("");
+    54→  const [activeTab, setActiveTab] = useState<"general" | "account">("general");
+    55→  const [mobileFabEnabled, setMobileFabEnabled] = useState(true);
+    56→  const fileInputRef = useRef<HTMLInputElement | null>(null);
+    57→  const avatarInputRef = useRef<HTMLInputElement | null>(null);
+    58→
+    59→  useEffect(() => {
+    60→    const stored = localStorage.getItem("habitflow-pomodoro-fab-enabled");
+    61→    if (stored !== null) setMobileFabEnabled(stored === "true");
+    62→  }, []);
+    63→
+    64→  function handleMobileFabToggle(enabled: boolean) {
+    65→    setMobileFabEnabled(enabled);
+    66→    localStorage.setItem("habitflow-pomodoro-fab-enabled", String(enabled));
+    67→    window.dispatchEvent(new Event("pomodoro-fab-toggle"));
+    68→  }
+    69→
+    70→  function initials(name: string) {
+    71→    return name
+    72→      .split(" ")
+    73→      .map((p) => p[0])
+    74→      .filter(Boolean)
+    75→      .slice(0, 2)
+    76→      .join("")
+    77→      .toUpperCase();
+    78→  }
+    79→
+    80→  async function handleAvatarUpload(file: File) {
+    81→    if (!file.type.startsWith("image/")) {
+    82→      toast.error("Please select an image file");
+    83→      return;
+    84→    }
+    85→    if (file.size > 2 * 1024 * 1024) {
+    86→      toast.error("Image must be under 2MB");
+    87→      return;
+    88→    }
+    89→    setUploadingAvatar(true);
+    90→    try {
+    91→      // Resize to max 256x256 and compress to keep the data URL small
+    92→      const dataUrl = await resizeImage(file, 256);
+    93→      updateMut.mutate({ avatarUrl: dataUrl });
+    94→      toast.success("Profile picture updated");
+    95→    } catch (e) {
+    96→      toast.error("Could not process image");
+    97→    } finally {
+    98→      setUploadingAvatar(false);
+    99→      if (avatarInputRef.current) avatarInputRef.current.value = "";
+   100→    }
+   101→  }
+   102→
+   103→  function handleRemoveAvatar() {
+   104→    updateMut.mutate({ avatarUrl: "" });
+   105→    toast("Profile picture removed");
+   106→  }
+   107→
+   108→  function resizeImage(file: File, maxSize: number): Promise<string> {
+   109→    return new Promise((resolve, reject) => {
+   110→      const reader = new FileReader();
+   111→      reader.onload = (e) => {
+   112→        const img = new Image();
+   113→        img.onload = () => {
+   114→          const canvas = document.createElement("canvas");
+   115→          let { width, height } = img;
+   116→          if (width > height) {
+   117→            if (width > maxSize) {
+   118→              height = Math.round((height * maxSize) / width);
+   119→              width = maxSize;
+   120→            }
+   121→          } else {
+   122→            if (height > maxSize) {
+   123→              width = Math.round((width * maxSize) / height);
+   124→              height = maxSize;
+   125→            }
+   126→          }
+   127→          canvas.width = width;
+   128→          canvas.height = height;
+   129→          const ctx = canvas.getContext("2d");
+   130→          if (!ctx) return reject(new Error("No canvas context"));
+   131→          ctx.drawImage(img, 0, 0, width, height);
+   132→          resolve(canvas.toDataURL("image/jpeg", 0.85));
+   133→        };
+   134→        img.onerror = reject;
+   135→        img.src = e.target?.result as string;
+   136→      };
+   137→      reader.onerror = reject;
+   138→      reader.readAsDataURL(file);
+   139→    });
+   140→  }
+   141→
+   142→  async function handleExport() {
+   143→    setExporting(true);
+   144→    try {
+   145→      const res = await fetch("/api/export?format=csv", { credentials: "include" });
+   146→      if (!res.ok) throw new Error("Export failed");
+   147→      const blob = await res.blob();
+   148→      const url = URL.createObjectURL(blob);
+   149→      const a = document.createElement("a");
+   150→      a.href = url;
+   151→      a.download = `habitflow-export-${new Date().toISOString().slice(0, 10)}.csv`;
+   152→      document.body.appendChild(a);
+   153→      a.click();
+   154→      document.body.removeChild(a);
+   155→      URL.revokeObjectURL(url);
+   156→      toast.success("Export ready", { description: "Your check-in data has been downloaded." });
+   157→    } catch (e) {
+   158→      toast.error((e as Error).message);
+   159→    } finally {
+   160→      setExporting(false);
+   161→    }
+   162→  }
+   163→
+   164→  async function handleImport(file: File) {
+   165→    setImporting(true);
+   166→    try {
+   167→      const text = await file.text();
+   168→      const res = await fetch("/api/export/import", {
+   169→        method: "POST",
+   170→        headers: { "Content-Type": "text/csv" },
+   171→        body: text,
+   172→        credentials: "include",
+   173→      });
+   174→      const data = await res.json();
+   175→      if (!res.ok) throw new Error(data.detail || "Import failed");
+   176→      const s = data.summary;
+   177→      toast.success("Import complete", {
+   178→        description: `${s.habitsCreated} new habits, ${s.habitsMatched} matched, ${s.checkinsCreated} check-ins imported.`,
+   179→      });
+   180→      // Invalidate queries so the UI refreshes
+   181→      qc.invalidateQueries();
+   182→    } catch (e) {
+   183→      toast.error((e as Error).message);
+   184→    } finally {
+   185→      setImporting(false);
+   186→      if (fileInputRef.current) fileInputRef.current.value = "";
+   187→    }
+   188→  }
+   189→
+   190→  const { data: settings, isLoading } = useQuery({
+   191→    queryKey: ["settings"],
+   192→    queryFn: () => api.getSettings(),
+   193→    enabled: !!user,
+   194→  });
+   195→
+   196→  // Sync name drafts when settings load
+   197→  useEffect(() => {
+   198→    if (settings) {
+   199→      setFirstNameDraft(settings.firstName || "");
+   200→      setLastNameDraft(settings.lastName || "");
+   201→    } else if (user) {
+   202→      const parts = (user.name || "").split(" ");
+   203→      setFirstNameDraft(parts[0] || "");
+   204→      setLastNameDraft(parts.slice(1).join(" ") || "");
+   205→    }
+   206→  }, [settings, user]);
+   207→
+   208→  // Check if name fields have been edited
+   209→  const savedFirst = settings?.firstName ?? user?.firstName ?? "";
+   210→  const savedLast = settings?.lastName ?? user?.lastName ?? "";
+   211→  const nameDirty = firstNameDraft !== savedFirst || lastNameDraft !== savedLast;
+   212→
+   213→  const form = useForm<ProfileForm>({
+   214→    resolver: zodResolver(profileSchema),
+   215→    values: settings
+   216→      ? { name: settings.name }
+   217→      : { name: user?.name ?? "" },
+   218→  });
+   219→
+   220→  const updateMut = useMutation({
+   221→    mutationFn: (body: Partial<{ name: string; timezone: string; emailRemindersEnabled: boolean }>) =>
+   222→      api.updateSettings(body),
+   223→    onSuccess: () => {
+   224→      qc.invalidateQueries({ queryKey: ["settings"] });
+   225→      qc.invalidateQueries({ queryKey: ["auth", "me"] });
+   226→      toast.success("Settings saved");
+   227→    },
+   228→    onError: (e: Error) => toast.error(e.message),
+   229→  });
+   230→
+   231→  const [reminders, setReminders] = useState<boolean | undefined>(undefined);
+   232→  const remindersValue = reminders ?? settings?.emailRemindersEnabled ?? user?.emailRemindersEnabled ?? true;
+   233→
+   234→  const [browserReminders, setBrowserReminders] = useState<boolean | undefined>(undefined);
+   235→  const browserRemindersValue = browserReminders ?? settings?.browserRemindersEnabled ?? user?.browserRemindersEnabled ?? false;
+   236→  const [reminderTimeDraft, setReminderTimeDraft] = useState<string | undefined>(undefined);
+   237→  const reminderTimeValue = reminderTimeDraft ?? settings?.reminderTime ?? user?.reminderTime ?? "09:00";
+   238→  const [sendingTest, setSendingTest] = useState(false);
+   239→  const [notifPermission, setNotifPermission] = useState<NotificationPermission | "unsupported">("default");
+   240→
+   241→  function onReminderToggle(v: boolean) {
+   242→    setReminders(v);
+   243→    updateMut.mutate({ emailRemindersEnabled: v });
+   244→  }
+   245→
+   246→  function onBrowserReminderToggle(v: boolean) {
+   247→    setBrowserReminders(v);
+   248→    if (v && typeof window !== "undefined" && "Notification" in window && Notification.permission === "default") {
+   249→      Notification.requestPermission().then((perm) => setNotifPermission(perm));
+   250→    }
+   251→    updateMut.mutate({ browserRemindersEnabled: v });
+   252→  }
+   253→
+   254→  async function handleTestEmail() {
+   255→    setSendingTest(true);
+   256→    try {
+   257→      const res = await api.sendTestReminder();
+   258→      if (res.mode === "dev-console") {
+   259→        toast.success("Test email logged to console", {
+   260→          description: `In production this would be sent to ${res.summary?.email}. (${res.summary?.overallPct}% complete this week)`,
+   261→        });
+   262→      } else {
+   263→        toast.success("Test email sent!", {
+   264→          description: `Check your inbox at ${res.summary?.email}.`,
+   265→        });
+   266→      }
+   267→    } catch (e) {
+   268→      toast.error((e as Error).message);
+   269→    } finally {
+   270→      setSendingTest(false);
+   271→    }
+   272→  }
+   273→
+   274→  function handleTestNotification() {
+   275→    if (typeof window === "undefined" || !("Notification" in window)) {
+   276→      toast.error("Browser notifications not supported");
+   277→      return;
+   278→    }
+   279→    if (Notification.permission === "default") {
+   280→      Notification.requestPermission().then((perm) => {
+   281→        setNotifPermission(perm);
+   282→        if (perm === "granted") {
+   283→          sendTestNotif();
+   284→        } else {
+   285→          toast.error("Notification permission denied");
+   286→        }
+   287→      });
+   288→    } else if (Notification.permission === "granted") {
+   289→      sendTestNotif();
+   290→    } else {
+   291→      toast.error("Notifications are blocked. Enable them in your browser settings.");
+   292→    }
+   293→  }
+   294→
+   295→  function sendTestNotif() {
+   296→    try {
+   297→      new Notification("HabitFlow reminder 🔔", {
+   298→        body: "This is how your daily habit reminder will look. Stay consistent!",
+   299→        icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
+   300→        tag: "habitflow-test",
+   301→      });
+   302→      toast.success("Test notification sent");
+   303→    } catch {
+   304→      toast.error("Could not show notification");
+   305→    }
+   306→  }
+   307→
+   308→  // Check notification permission on mount
+   309→  useEffect(() => {
+   310→    if (typeof window === "undefined" || !("Notification" in window)) {
+   311→      setNotifPermission("unsupported");
+   312→    } else {
+   313→      setNotifPermission(Notification.permission);
+   314→    }
+   315→  }, []);
+   316→
+   317→  return (
+   318→    <div className="space-y-6 max-w-3xl">
+   319→      <div>
+   320→        <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
+   321→        <p className="text-sm text-muted-foreground">Manage your profile and preferences.</p>
+   322→      </div>
+   323→
+   324→      {/* Horizontal tab switcher */}
+   325→      <div className="flex gap-6 border-b border-border">
+   326→        <button
+   327→          type="button"
+   328→          onClick={() => setActiveTab("general")}
+   329→          className={cn(
+   330→            "pb-3 text-sm font-medium transition-colors relative -mb-px border-b-2",
+   331→            activeTab === "general"
+   332→              ? "border-violet-500 text-violet-600 dark:text-violet-400"
+   333→              : "border-transparent text-muted-foreground hover:text-foreground",
+   334→          )}
+   335→        >
+   336→          General
+   337→        </button>
+   338→        <button
+   339→          type="button"
+   340→          onClick={() => setActiveTab("account")}
+   341→          className={cn(
+   342→            "pb-3 text-sm font-medium transition-colors relative -mb-px border-b-2",
+   343→            activeTab === "account"
+   344→              ? "border-violet-500 text-violet-600 dark:text-violet-400"
+   345→              : "border-transparent text-muted-foreground hover:text-foreground",
+   346→          )}
+   347→        >
+   348→          Account
+   349→        </button>
+   350→      </div>
+   351→
+   352→      {/* Tab content — only one visible at a time */}
+   353→      {activeTab === "general" ? (
+   354→        <div className="space-y-4">
+   355→          {/* Profile */}
+   356→          <Card className="p-6">
+   357→            <div className="flex items-center gap-2 mb-4">
+   358→              <UserIcon className="w-5 h-5 text-emerald-500" />
+   359→              <h3 className="font-semibold">Profile</h3>
+   360→            </div>
+   361→
+   362→            {/* Avatar + Name fields — centered on mobile, horizontal on desktop */}
+   363→            <div className="flex flex-col items-center gap-4 mb-6 sm:flex-row sm:items-start">
+   364→              {/* Avatar */}
+   365→              <div className="relative flex-shrink-0">
+   366→                {settings?.avatarUrl || user?.avatarUrl ? (
+   367→                  <img
+   368→                    src={settings?.avatarUrl || user?.avatarUrl}
+   369→                    alt={user?.name ?? "Profile"}
+   370→                    className="w-20 h-20 rounded-full object-cover border-2 border-border"
+   371→                  />
+   372→                ) : (
+   373→                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white text-2xl font-semibold">
+   374→                    {user ? initials(user.name) : "?"}
+   375→                  </div>
+   376→                )}
+   377→                {/* Camera badge */}
+   378→                <button
+   379→                  onClick={() => avatarInputRef.current?.click()}
+   380→                  disabled={uploadingAvatar || updateMut.isPending}
+   381→                  className="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-background border border-border flex items-center justify-center shadow-sm hover:bg-muted transition-colors"
+   382→                  aria-label="Upload profile photo"
+   383→                >
+   384→                  {uploadingAvatar ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Camera className="w-3.5 h-3.5" />}
+   385→                </button>
+   386→                <input
+   387→                  ref={avatarInputRef}
+   388→                  type="file"
+   389→                  accept="image/*"
+   390→                  className="hidden"
+   391→                  onChange={(e) => {
+   392→                    const f = e.target.files?.[0];
+   393→                    if (f) handleAvatarUpload(f);
+   394→                  }}
+   395→                />
+   396→              </div>
+   397→
+   398→              {/* Name display below avatar (mobile only) */}
+   399→              <div className="text-center sm:hidden">
+   400→                <p className="text-sm font-medium text-foreground">
+   401→                  {[firstNameDraft, lastNameDraft].filter(Boolean).join(" ") || user?.name || "Your name"}
+   402→                </p>
+   403→                <p className="text-xs text-muted-foreground">{user?.email}</p>
+   404→              </div>
+   405→
+   406→              {/* Name fields — full width below avatar on mobile */}
+   407→              <div className="w-full grid grid-cols-2 gap-3 sm:flex-1">
+   408→                <div className="space-y-1.5">
+   409→                  <Label htmlFor="s-first" className="text-xs">First Name</Label>
+   410→                  <Input
+   411→                    id="s-first"
+   412→                    placeholder="John"
+   413→                    value={firstNameDraft}
+   414→                    onChange={(e) => setFirstNameDraft(e.target.value)}
+   415→                  />
+   416→                </div>
+   417→                <div className="space-y-1.5">
+   418→                  <Label htmlFor="s-last" className="text-xs">Last Name</Label>
+   419→                  <Input
+   420→                    id="s-last"
+   421→                    placeholder="Doe"
+   422→                    value={lastNameDraft}
+   423→                    onChange={(e) => setLastNameDraft(e.target.value)}
+   424→                  />
+   425→                </div>
+   426→              </div>
+   427→            </div>
+   428→
+   429→            {/* Save button for name changes */}
+   430→            {nameDirty && (
+   431→              <div className="flex justify-end mb-4">
+   432→                <Button
+   433→                  size="sm"
+   434→                  onClick={() => {
+   435→                    const fullName = [firstNameDraft, lastNameDraft].filter(Boolean).join(" ");
+   436→                    updateMut.mutate({
+   437→                      firstName: firstNameDraft,
+   438→                      lastName: lastNameDraft,
+   439→                      name: fullName,
+   440→                    });
+   441→                  }}
+   442→                  disabled={updateMut.isPending}
+   443→                >
+   444→                  {updateMut.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+   445→                  Save changes
+   446→                </Button>
+   447→              </div>
+   448→            )}
+   449→
+   450→            {/* Email (read-only) */}
+   451→            <div className="space-y-2">
+   452→              <Label htmlFor="s-email">Email</Label>
+   453→              <div className="relative">
+   454→                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+   455→                <Input id="s-email" value={settings?.email ?? user?.email ?? ""} disabled className="pl-9 bg-muted/50" />
+   456→              </div>
+   457→              <p className="text-xs text-muted-foreground">Email cannot be changed.</p>
+   458→            </div>
+   459→          </Card>
+   460→
+   461→          {/* Appearance / Theme */}
+   462→          <Card className="p-6">
+   463→            <div className="flex items-center gap-2 mb-4">
+   464→              <Sun className="w-5 h-5 text-amber-500" />
+   465→              <h3 className="font-semibold">Appearance</h3>
+   466→            </div>
+   467→            <div className="flex items-center justify-between">
+   468→              <div>
+   469→                <div className="text-sm font-medium">Theme</div>
+   470→                <p className="text-xs text-muted-foreground mt-0.5">Choose how HabitFlow looks to you.</p>
+   471→              </div>
+   472→              <Select value={theme ?? "system"} onValueChange={(v) => setTheme(v)}>
+   473→                <SelectTrigger className="w-[160px]">
+   474→                  <SelectValue />
+   475→                </SelectTrigger>
+   476→                <SelectContent>
+   477→                  <SelectItem value="system">
+   478→                    <div className="flex items-center gap-2">
+   479→                      <Laptop className="w-4 h-4" />
+   480→                      <span>System</span>
+   481→                    </div>
+   482→                  </SelectItem>
+   483→                  <SelectItem value="light">
+   484→                    <div className="flex items-center gap-2">
+   485→                      <Sun className="w-4 h-4" />
+   486→                      <span>Light</span>
+   487→                    </div>
+   488→                  </SelectItem>
+   489→                  <SelectItem value="dark">
+   490→                    <div className="flex items-center gap-2">
+   491→                      <Moon className="w-4 h-4" />
+   492→                      <span>Dark</span>
+   493→                    </div>
+   494→                  </SelectItem>
+   495→                </SelectContent>
+   496→              </Select>
+   497→            </div>
+   498→          </Card>
+   499→
+   500→          {/* Notifications */}
+   501→          <Card className="p-6">
+   502→            <div className="flex items-center gap-2 mb-4">
+   503→              <Bell className="w-5 h-5 text-emerald-500" />
+   504→              <h3 className="font-semibold">Notifications</h3>
+   505→            </div>
+   506→
+   507→            {/* Email reminders */}
+   508→            <div className="space-y-3">
+   509→              <div className="flex items-center justify-between">
+   510→                <div className="pr-4">
+   511→                  <div className="text-sm font-medium">Weekly email reminders</div>
+   512→                  <p className="text-xs text-muted-foreground mt-0.5">
+   513→                    Get a Sunday summary of your week&apos;s progress and streaks.
+   514→                  </p>
+   515→                </div>
+   516→                <Switch checked={remindersValue} onCheckedChange={onReminderToggle} disabled={updateMut.isPending} />
+   517→              </div>
+   518→              {remindersValue && (
+   519→                <div className="flex items-center justify-between flex-wrap gap-2 pl-4 border-l-2 border-emerald-500/30">
+   520→                  <p className="text-xs text-muted-foreground">
+   521→                    In development mode, reminder emails are logged to the server console instead of being sent.
+   522→                  </p>
+   523→                  <Button variant="outline" size="sm" onClick={handleTestEmail} disabled={sendingTest}>
+   524→                    {sendingTest ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Mail className="w-3.5 h-3.5 mr-1.5" />}
+   525→                    Send test email
+   526→                  </Button>
+   527→                </div>
+   528→              )}
+   529→            </div>
+   530→
+   531→            <div className="h-px bg-border my-4" />
+   532→
+   533→            {/* Browser notifications */}
+   534→            <div className="space-y-3">
+   535→              <div className="flex items-center justify-between">
+   536→                <div className="pr-4">
+   537→                  <div className="text-sm font-medium flex items-center gap-1.5">
+   538→                    Browser notifications
+   539→                    {notifPermission === "denied" && (
+   540→                      <span className="text-[10px] text-destructive font-medium px-1.5 py-0.5 bg-destructive/10 rounded">Blocked</span>
+   541→                    )}
+   542→                  </div>
+   543→                  <p className="text-xs text-muted-foreground mt-0.5">
+   544→                    Get a daily in-browser reminder at your chosen time when habits are due.
+   545→                  </p>
+   546→                </div>
+   547→                <Switch
+   548→                  checked={browserRemindersValue}
+   549→                  onCheckedChange={onBrowserReminderToggle}
+   550→                  disabled={updateMut.isPending || notifPermission === "denied"}
+   551→                />
+   552→              </div>
+   553→              {browserRemindersValue && (
+   554→                <div className="flex items-center justify-between flex-wrap gap-3 pl-4 border-l-2 border-emerald-500/30">
+   555→                  <div className="space-y-1.5">
+   556→                    <Label htmlFor="reminder-time" className="text-xs">Reminder time</Label>
+   557→                    <Input
+   558→                      id="reminder-time"
+   559→                      type="time"
+   560→                      value={reminderTimeValue}
+   561→                      onChange={(e) => {
+   562→                        setReminderTimeDraft(e.target.value);
+   563→                        updateMut.mutate({ reminderTime: e.target.value });
+   564→                      }}
+   565→                      className="w-32"
+   566→                    />
+   567→                  </div>
+   568→                  <Button variant="outline" size="sm" onClick={handleTestNotification}>
+   569→                    <Bell className="w-3.5 h-3.5 mr-1.5" />
+   570→                    Test notification
+   571→                  </Button>
+   572→                </div>
+   573→              )}
+   574→              {browserRemindersValue && notifPermission === "default" && (
+   575→                <p className="text-xs text-amber-600 dark:text-amber-400 pl-4 border-l-2 border-amber-500/30">
+   576→                  Click &quot;Test notification&quot; or reload to grant browser notification permission.
+   577→                </p>
+   578→              )}
+   579→              {browserRemindersValue && notifPermission === "denied" && (
+   580→                <p className="text-xs text-destructive pl-4 border-l-2 border-destructive/30">
+   581→                  Browser notifications are blocked. Enable them in your browser settings to use this feature.
+   582→                </p>
+   583→              )}
+   584→            </div>
+   585→          </Card>
+   586→
+   587→          {/* Time of Day */}
+   588→          <TimeOfDaySettings />
+   589→
+   590→          {/* Help & tour */}
+   591→          <Card className="p-6">
+   592→            <div className="flex items-center gap-2 mb-4">
+   593→              <HelpCircle className="w-5 h-5 text-emerald-500" />
+   594→              <h3 className="font-semibold">Help</h3>
+   595→            </div>
+   596→            <div className="flex items-center justify-between flex-wrap gap-3">
+   597→              <div className="pr-4">
+   598→                <div className="text-sm font-medium">Take the tour again</div>
+   599→                <p className="text-xs text-muted-foreground mt-0.5">
+   600→                  Replay the onboarding tour to rediscover features like Quick start, keyboard shortcuts, and weekly review.
+   601→                </p>
+   602→              </div>
+   603→              <Button
+   604→                variant="outline"
+   605→                onClick={() => {
+   606→                  resetTour();
+   607→                  go({ name: "dashboard" });
+   608→                  setTimeout(() => window.location.reload(), 200);
+   609→                }}
+   610→              >
+   611→                <Sparkles className="w-4 h-4 mr-2" /> Restart tour
+   612→              </Button>
+   613→            </div>
+   614→
+   615→            <div className="h-px bg-border my-4" />
+   616→
+   617→            {/* Mobile Focus Timer FAB toggle */}
+   618→            <div className="flex items-center justify-between">
+   619→              <div className="pr-4">
+   620→                <div className="text-sm font-medium">Show mobile Focus Timer button</div>
+   621→                <p className="text-xs text-muted-foreground mt-0.5">
+   622→                  Display a floating Focus Timer button on mobile devices. Disable if you prefer a cleaner mobile interface.
+   623→                </p>
+   624→              </div>
+   625→              <Switch
+   626→                checked={mobileFabEnabled}
+   627→                onCheckedChange={handleMobileFabToggle}
+   628→              />
+   629→            </div>
+   630→          </Card>
+   631→        </div>
+   632→      ) : (
+   633→        <div className="space-y-4">
+   634→          {/* Data export / import */}
+   635→          <Card className="p-6">
+   636→            <div className="flex items-center gap-2 mb-4">
+   637→              <DatabaseIcon className="w-5 h-5 text-emerald-500" />
+   638→              <h3 className="font-semibold">Your data</h3>
+   639→            </div>
+   640→            <div className="space-y-4">
+   641→              <div className="flex items-center justify-between flex-wrap gap-3">
+   642→                <div className="pr-4">
+   643→                  <div className="text-sm font-medium">Export check-ins as CSV</div>
+   644→                  <p className="text-xs text-muted-foreground mt-0.5">
+   645→                    Download all your habit check-ins as a spreadsheet. Great for backups or analysis.
+   646→                  </p>
+   647→                </div>
+   648→                <Button variant="outline" onClick={handleExport} disabled={exporting}>
+   649→                  {exporting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
+   650→                  Export CSV
+   651→                </Button>
+   652→              </div>
+   653→              <div className="h-px bg-border" />
+   654→              <div className="flex items-center justify-between flex-wrap gap-3">
+   655→                <div className="pr-4">
+   656→                  <div className="text-sm font-medium">Import from CSV</div>
+   657→                  <p className="text-xs text-muted-foreground mt-0.5">
+   658→                    Restore from a previous export. Habits are matched by name; check-ins are merged (existing ones are updated).
+   659→                  </p>
+   660→                </div>
+   661→                <input
+   662→                  ref={fileInputRef}
+   663→                  type="file"
+   664→                  accept=".csv,text/csv,text/plain"
+   665→                  className="hidden"
+   666→                  onChange={(e) => {
+   667→                    const f = e.target.files?.[0];
+   668→                    if (f) handleImport(f);
+   669→                  }}
+   670→                />
+   671→                <Button
+   672→                  variant="outline"
+   673→                  onClick={() => fileInputRef.current?.click()}
+   674→                  disabled={importing}
+   675→                >
+   676→                  {importing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
+   677→                  Import CSV
+   678→                </Button>
+   679→              </div>
+   680→            </div>
+   681→          </Card>
+   682→
+   683→          {/* Session */}
+   684→          <Card className="p-6 border-destructive/30">
+   685→            <div className="flex items-center gap-2 mb-4">
+   686→              <LogOut className="w-5 h-5 text-destructive" />
+   687→              <h3 className="font-semibold">Session</h3>
+   688→            </div>
+   689→            <Button variant="outline" onClick={() => setLogoutOpen(true)} className="text-destructive hover:text-destructive">
+   690→              <LogOut className="w-4 h-4 mr-2" /> Log out
+   691→            </Button>
+   692→          </Card>
+   693→
+   694→          {/* Caution Zone */}
+   695→          <DangerZone />
+   696→        </div>
+   697→      )}
+   698→
+   699→      <AlertDialog open={logoutOpen} onOpenChange={setLogoutOpen}>
+   700→        <AlertDialogContent>
+   701→          <AlertDialogHeader>
+   702→            <AlertDialogTitle>Log out?</AlertDialogTitle>
+   703→            <AlertDialogDescription>You will need to sign in again to continue tracking.</AlertDialogDescription>
+   704→          </AlertDialogHeader>
+   705→          <AlertDialogFooter>
+   706→            <AlertDialogCancel>Cancel</AlertDialogCancel>
+   707→            <AlertDialogAction onClick={() => logout()}>Log out</AlertDialogAction>
+   708→          </AlertDialogFooter>
+   709→        </AlertDialogContent>
+   710→      </AlertDialog>
+   711→    </div>
+   712→  );
+   713→}
+   714→

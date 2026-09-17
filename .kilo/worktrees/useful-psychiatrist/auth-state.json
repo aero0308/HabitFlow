@@ -1,0 +1,40 @@
+{
+  "cookies": [
+    {
+      "name": "ht_access",
+      "value": "eyJhbGciOiJIUzI1NiJ9.eyJlbWFpbCI6ImRlbW9AaGFiaXRmbG93LmFwcCIsInR5cGUiOiJhY2Nlc3MiLCJzdWIiOiJjbXR5bng2czAwMDAwbWV4cnZ6dWdyenlhIiwiaWF0IjoxNzg5Mjk3MTgwLCJleHAiOjE3ODkyOTg5ODB9.LCNv3l6dW3TmuPBwhkbl0yXYW-xOtzVn832esqkc8ac",
+      "domain": "localhost",
+      "path": "/",
+      "expires": 1789298980.283797,
+      "size": 226,
+      "httpOnly": true,
+      "secure": false,
+      "session": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "ht_refresh",
+      "value": "eyJhbGciOiJIUzI1NiJ9.eyJlbWFpbCI6ImRlbW9AaGFiaXRmbG93LmFwcCIsInR5cGUiOiJyZWZyZXNoIiwic3ViIjoiY210eW54NnMwMDAwMG1leHJ2enVncnp5YSIsImlhdCI6MTc4OTI5NzE4MCwiZXhwIjoxNzg5OTAxOTgwfQ.8wkdZBfGR5mcz-46Tsle7XlvWrodommf8eOdb5YXIgQ",
+      "domain": "localhost",
+      "path": "/",
+      "expires": 1789901980.283926,
+      "size": 229,
+      "httpOnly": true,
+      "secure": false,
+      "session": false,
+      "sameSite": "Lax"
+    }
+  ],
+  "origins": [
+    {
+      "origin": "http://localhost:3000",
+      "localStorage": [
+        {
+          "name": "ht-nav",
+          "value": "{\"state\":{\"page\":{\"name\":\"habits\"}},\"version\":0}"
+        }
+      ],
+      "sessionStorage": []
+    }
+  ]
+}

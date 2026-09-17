@@ -1,0 +1,468 @@
+     1→<!DOCTYPE html>
+     2→
+     3→<html class="scroll-smooth" lang="en"><head>
+     4→<meta charset="utf-8"/>
+     5→<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+     6→<title>Momentum &amp; Habit Feature Showcase</title>
+     7→<!-- Google Fonts: Plus Jakarta Sans & Inter -->
+     8→<link href="https://fonts.googleapis.com" rel="preconnect"/>
+     9→<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+    10→<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+    11→<!-- Tailwind CSS v3 CDN with forms and container-queries -->
+    12→<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    13→<!-- Tailwind Custom Configuration -->
+    14→<script>
+    15→    tailwind.config = {
+    16→      darkMode: 'class',
+    17→      theme: {
+    18→        extend: {
+    19→          fontFamily: {
+    20→            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+    21→            mono: ['"JetBrains Mono"', 'monospace'],
+    22→          },
+    23→          colors: {
+    24→            slate: {
+    25→              950: '#07090e',
+    26→              900: '#0c1017',
+    27→              850: '#111722',
+    28→              800: '#161e2e',
+    29→            }
+    30→          },
+    31→          animation: {
+    32→            'pulse-subtle': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+    33→            'soundwave': 'soundwave 1.2s ease-in-out infinite alternate',
+    34→          },
+    35→          keyframes: {
+    36→            soundwave: {
+    37→              '0%': { height: '6px' },
+    38→              '100%': { height: '22px' },
+    39→            }
+    40→          }
+    41→        }
+    42→      }
+    43→    }
+    44→  </script>
+    45→<!-- Custom Ambient and Component Styles -->
+    46→<style data-purpose="ambient-glows">
+    47→    .bg-grid-pattern {
+    48→      background-size: 40px 40px;
+    49→      background-image: 
+    50→        linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    51→        linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    52→    }
+    53→    
+    54→    .card-glass {
+    55→      background: linear-gradient(180deg, rgba(18, 24, 38, 0.85) 0%, rgba(12, 16, 25, 0.95) 100%);
+    56→      backdrop-filter: blur(16px);
+    57→      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 20px 40px -15px rgba(0, 0, 0, 0.5);
+    58→    }
+    59→    
+    60→    .card-glass:hover {
+    61→      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.14), 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+    62→    }
+    63→
+    64→    .shimmer-badge {
+    65→      background: linear-gradient(90deg, rgba(245, 158, 11, 0.15) 0%, rgba(245, 158, 11, 0.35) 50%, rgba(245, 158, 11, 0.15) 100%);
+    66→      background-size: 200% 100%;
+    67→    }
+    68→  </style>
+    69→</head>
+    70→<body class="bg-[#080B11] text-zinc-100 font-sans antialiased min-h-screen selection:bg-indigo-500/30 selection:text-indigo-200 relative overflow-x-hidden">
+    71→<!-- BEGIN: AmbientBackground -->
+    72→<div aria-hidden="true" class="fixed inset-0 pointer-events-none -z-10 overflow-hidden">
+    73→<!-- Subtle Grid overlay -->
+    74→<div class="absolute inset-0 bg-grid-pattern opacity-80"></div>
+    75→<!-- Top Radial Ambient Lights -->
+    76→<div class="absolute -top-[20%] left-1/2 -translate-x-1/2 w-[900px] h-[500px] bg-gradient-to-b from-indigo-600/15 via-purple-600/10 to-transparent blur-[120px] rounded-full"></div>
+    77→<div class="absolute top-[40%] -left-[10%] w-[500px] h-[500px] bg-cyan-600/10 blur-[130px] rounded-full"></div>
+    78→<div class="absolute top-[60%] -right-[10%] w-[600px] h-[600px] bg-rose-600/10 blur-[140px] rounded-full"></div>
+    79→</div>
+    80→<!-- END: AmbientBackground -->
+    81→<!-- BEGIN: MainContent -->
+    82→<main class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-24 lg:pt-28 lg:pb-32">
+    83→<!-- BEGIN: SectionHeader -->
+    84→<section class="text-center max-w-3xl mx-auto mb-16 lg:mb-20" data-purpose="section-header">
+    85→<!-- Feature Category Pill -->
+    86→<div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/[0.04] border border-white/10 text-xs font-semibold tracking-wider text-indigo-300 uppercase mb-6 shadow-inner backdrop-blur-md">
+    87→<span class="flex h-2 w-2 rounded-full bg-indigo-400 animate-ping"></span>
+    88→<span>⚡ POWERFUL CAPABILITIES</span>
+    89→</div>
+    90→<!-- Main Headline -->
+    91→<h1 class="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-white leading-tight mb-5">
+    92→        Engineered to keep your <br class="hidden sm:inline"/>
+    93→<span class="bg-clip-text text-transparent bg-gradient-to-r from-white via-zinc-200 to-zinc-400">momentum unstoppable</span>
+    94→</h1>
+    95→<!-- Subtitle -->
+    96→<p class="text-base sm:text-lg text-zinc-400 font-normal leading-relaxed">
+    97→        Everything you need to formulate enduring routines, dial in laser focus, and measure continuous self-evolution in one unified cockpit.
+    98→      </p>
+    99→<!-- Category Filter Pills (Interactive UI Accent) -->
+   100→<div class="mt-8 flex flex-wrap items-center justify-center gap-2" data-purpose="filter-tabs">
+   101→<button class="px-4 py-2 rounded-full text-xs font-medium bg-zinc-100 text-zinc-900 shadow-sm transition" type="button">All Features</button>
+   102→<button class="px-4 py-2 rounded-full text-xs font-medium bg-zinc-900/80 text-zinc-400 border border-white/5 hover:border-white/20 hover:text-white transition" type="button">Habit Tracking</button>
+   103→<button class="px-4 py-2 rounded-full text-xs font-medium bg-zinc-900/80 text-zinc-400 border border-white/5 hover:border-white/20 hover:text-white transition" type="button">Focus &amp; Audio</button>
+   104→<button class="px-4 py-2 rounded-full text-xs font-medium bg-zinc-900/80 text-zinc-400 border border-white/5 hover:border-white/20 hover:text-white transition" type="button">Insights &amp; Sync</button>
+   105→</div>
+   106→</section>
+   107→<!-- END: SectionHeader -->
+   108→<!-- BEGIN: BentoFeatureGrid -->
+   109→<section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" data-purpose="features-bento-grid">
+   110→<!-- Card 1: Streak Tracking 🔥 (Spans 1 col, high-visual interactive streak badge) -->
+   111→<article class="card-glass rounded-2xl p-6 md:p-7 flex flex-col justify-between border border-white/[0.07] transition-all duration-300 hover:-translate-y-1 group" data-purpose="feature-card-streak">
+   112→<div>
+   113→<!-- Header and Icon -->
+   114→<div class="flex items-center justify-between mb-5">
+   115→<div class="w-12 h-12 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-400 shadow-[0_0_15px_rgba(249,115,22,0.15)] group-hover:scale-105 transition-transform duration-300">
+   116→<svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24">
+   117→<path d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" stroke-linecap="round" stroke-linejoin="round"></path>
+   118→</svg>
+   119→</div>
+   120→<!-- Streak Flame Stat Pill -->
+   121→<div class="flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-orange-500/15 to-amber-500/15 border border-orange-500/30 text-xs font-bold text-orange-300">
+   122→<span>🔥</span>
+   123→<span>28 Days Active</span>
+   124→</div>
+   125→</div>
+   126→<h3 class="text-xl font-bold text-white mb-2.5 flex items-center gap-2">
+   127→            Streak Tracking 🔥
+   128→          </h3>
+   129→<p class="text-sm text-zinc-400 leading-relaxed">
+   130→            Smart streak calculation that respects your schedule, even for custom days like Mon/Wed/Fri.
+   131→          </p>
+   132→</div>
+   133→<!-- Custom Mini UI: Schedule Week Days -->
+   134→<div aria-label="Schedule preview" class="mt-6 pt-5 border-t border-white/5 flex items-center justify-between">
+   135→<span class="text-xs font-mono text-zinc-500">Custom Schedule</span>
+   136→<div class="flex gap-1 text-[11px] font-mono">
+   137→<span class="w-6 h-6 rounded bg-orange-500/20 border border-orange-500/40 text-orange-300 font-semibold flex items-center justify-center">M</span>
+   138→<span class="w-6 h-6 rounded bg-white/5 text-zinc-600 flex items-center justify-center">T</span>
+   139→<span class="w-6 h-6 rounded bg-orange-500/20 border border-orange-500/40 text-orange-300 font-semibold flex items-center justify-center">W</span>
+   140→<span class="w-6 h-6 rounded bg-white/5 text-zinc-600 flex items-center justify-center">T</span>
+   141→<span class="w-6 h-6 rounded bg-orange-500/20 border border-orange-500/40 text-orange-300 font-semibold flex items-center justify-center">F</span>
+   142→<span class="w-6 h-6 rounded bg-white/5 text-zinc-600 flex items-center justify-center">S</span>
+   143→<span class="w-6 h-6 rounded bg-white/5 text-zinc-600 flex items-center justify-center">S</span>
+   144→</div>
+   145→</div>
+   146→</article>
+   147→<!-- Card 2: Calendar Heatmap 🗓️ (Spans 1 col, mini GitHub-style heatmap widget) -->
+   148→<article class="card-glass rounded-2xl p-6 md:p-7 flex flex-col justify-between border border-white/[0.07] transition-all duration-300 hover:-translate-y-1 group" data-purpose="feature-card-heatmap">
+   149→<div>
+   150→<!-- Header and Icon -->
+   151→<div class="flex items-center justify-between mb-5">
+   152→<div class="w-12 h-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.15)] group-hover:scale-105 transition-transform duration-300">
+   153→<svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24">
+   154→<path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round"></path>
+   155→</svg>
+   156→</div>
+   157→<span class="text-xs font-mono text-indigo-300/80 bg-indigo-950/60 px-2.5 py-1 rounded-md border border-indigo-800/40">GitHub Style</span>
+   158→</div>
+   159→<h3 class="text-xl font-bold text-white mb-2.5 flex items-center gap-2">
+   160→            Calendar Heatmap 🗓️
+   161→          </h3>
+   162→<p class="text-sm text-zinc-400 leading-relaxed">
+   163→            Visualize your progress GitHub-style and spot patterns at a glance.
+   164→          </p>
+   165→</div>
+   166→<!-- Custom Mini UI: Micro Heatmap Grid -->
+   167→<div class="mt-6 pt-4 border-t border-white/5">
+   168→<div class="flex items-center justify-between mb-2">
+   169→<span class="text-[11px] font-mono text-zinc-500">Activity Density</span>
+   170→<span class="text-[10px] font-mono text-indigo-400 font-semibold">94% Completion</span>
+   171→</div>
+   172→<!-- Heatmap dot matrix -->
+   173→<div class="grid grid-flow-col grid-rows-4 gap-1.5 justify-between py-1">
+   174→<!-- Row items with variable color intensity -->
+   175→<div class="w-3.5 h-3.5 rounded-sm bg-indigo-950/60"></div>
+   176→<div class="w-3.5 h-3.5 rounded-sm bg-indigo-600/40"></div>
+   177→<div class="w-3.5 h-3.5 rounded-sm bg-indigo-500"></div>
+   178→<div class="w-3.5 h-3.5 rounded-sm bg-indigo-400"></div>
+   179→<div class="w-3.5 h-3.5 rounded-sm bg-indigo-600/30"></div>
+   180→<div class="w-3.5 h-3.5 rounded-sm bg-indigo-500"></div>
+   181→<div class="w-3.5 h-3.5 rounded-sm bg-indigo-600"></div>
+   182→<div class="w-3.5 h-3.5 rounded-sm bg-indigo-400"></div>
+   183→<div class="w-3.5 h-3.5 rounded-sm bg-indigo-400"></div>
+   184→<div class="w-3.5 h-3.5 rounded-sm bg-indigo-500"></div>
+   185→<div class="w-3.5 h-3.5 rounded-sm bg-indigo-300"></div>
+   186→<div class="w-3.5 h-3.5 rounded-sm bg-indigo-500"></div>
+   187→<div class="w-3.5 h-3.5 rounded-sm bg-indigo-950/60"></div>
+   188→<div class="w-3.5 h-3.5 rounded-sm bg-indigo-600/50"></div>
+   189→<div class="w-3.5 h-3.5 rounded-sm bg-indigo-400"></div>
+   190→<div class="w-3.5 h-3.5 rounded-sm bg-indigo-500"></div>
+   191→<div class="w-3.5 h-3.5 rounded-sm bg-indigo-500"></div>
+   192→<div class="w-3.5 h-3.5 rounded-sm bg-indigo-400"></div>
+   193→<div class="w-3.5 h-3.5 rounded-sm bg-indigo-300"></div>
+   194→<div class="w-3.5 h-3.5 rounded-sm bg-indigo-400"></div>
+   195→<div class="w-3.5 h-3.5 rounded-sm bg-indigo-600/40"></div>
+   196→<div class="w-3.5 h-3.5 rounded-sm bg-indigo-500"></div>
+   197→<div class="w-3.5 h-3.5 rounded-sm bg-indigo-400"></div>
+   198→<div class="w-3.5 h-3.5 rounded-sm bg-indigo-300"></div>
+   199→</div>
+   200→</div>
+   201→</article>
+   202→<!-- Card 3: Analytics 📊 (Spans 1 col, mini weekly bar chart) -->
+   203→<article class="card-glass rounded-2xl p-6 md:p-7 flex flex-col justify-between border border-white/[0.07] transition-all duration-300 hover:-translate-y-1 group" data-purpose="feature-card-analytics">
+   204→<div>
+   205→<!-- Header and Icon -->
+   206→<div class="flex items-center justify-between mb-5">
+   207→<div class="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.15)] group-hover:scale-105 transition-transform duration-300">
+   208→<svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24">
+   209→<path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" stroke-linecap="round" stroke-linejoin="round"></path>
+   210→</svg>
+   211→</div>
+   212→<span class="text-xs font-medium text-emerald-400 flex items-center gap-1">
+   213→<svg class="w-3.5 h-3.5" fill="currentColor" viewbox="0 0 20 20"><path clip-rule="evenodd" d="M12 7a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L12 11.586l3.293-3.293H13a1 1 0 01-1-1z" fill-rule="evenodd"></path></svg>
+   214→              +18.4%
+   215→            </span>
+   216→</div>
+   217→<h3 class="text-xl font-bold text-white mb-2.5 flex items-center gap-2">
+   218→            Analytics 📊
+   219→          </h3>
+   220→<p class="text-sm text-zinc-400 leading-relaxed">
+   221→            Weekly charts, completion rates, and best-day insights to understand your behavior.
+   222→          </p>
+   223→</div>
+   224→<!-- Custom Mini UI: Weekly Spark Bars -->
+   225→<div aria-label="Weekly performance bar preview" class="mt-6 pt-4 border-t border-white/5 flex items-end justify-between gap-2 h-14">
+   226→<div class="flex-1 flex flex-col items-center gap-1.5 h-full justify-end">
+   227→<div class="w-full bg-emerald-500/20 rounded-t h-[40%] group-hover:bg-emerald-500/30 transition-all"></div>
+   228→<span class="text-[10px] text-zinc-500 font-mono">M</span>
+   229→</div>
+   230→<div class="flex-1 flex flex-col items-center gap-1.5 h-full justify-end">
+   231→<div class="w-full bg-emerald-500/30 rounded-t h-[65%] group-hover:bg-emerald-500/40 transition-all"></div>
+   232→<span class="text-[10px] text-zinc-500 font-mono">T</span>
+   233→</div>
+   234→<div class="flex-1 flex flex-col items-center gap-1.5 h-full justify-end">
+   235→<div class="w-full bg-emerald-500/40 rounded-t h-[80%] group-hover:bg-emerald-500/50 transition-all"></div>
+   236→<span class="text-[10px] text-zinc-500 font-mono">W</span>
+   237→</div>
+   238→<div class="flex-1 flex flex-col items-center gap-1.5 h-full justify-end">
+   239→<div class="w-full bg-emerald-400 rounded-t h-[95%] shadow-[0_0_8px_rgba(52,211,153,0.5)]"></div>
+   240→<span class="text-[10px] text-emerald-300 font-semibold font-mono">T</span>
+   241→</div>
+   242→<div class="flex-1 flex flex-col items-center gap-1.5 h-full justify-end">
+   243→<div class="w-full bg-emerald-500/40 rounded-t h-[70%] group-hover:bg-emerald-500/50 transition-all"></div>
+   244→<span class="text-[10px] text-zinc-500 font-mono">F</span>
+   245→</div>
+   246→<div class="flex-1 flex flex-col items-center gap-1.5 h-full justify-end">
+   247→<div class="w-full bg-emerald-500/25 rounded-t h-[50%] group-hover:bg-emerald-500/35 transition-all"></div>
+   248→<span class="text-[10px] text-zinc-500 font-mono">S</span>
+   249→</div>
+   250→<div class="flex-1 flex flex-col items-center gap-1.5 h-full justify-end">
+   251→<div class="w-full bg-emerald-500/30 rounded-t h-[60%] group-hover:bg-emerald-500/40 transition-all"></div>
+   252→<span class="text-[10px] text-zinc-500 font-mono">S</span>
+   253→</div>
+   254→</div>
+   255→</article>
+   256→<!-- Card 4: Focus Timer ⏱️ (Spans 1 col, mini Pomodoro cycle preview) -->
+   257→<article class="card-glass rounded-2xl p-6 md:p-7 flex flex-col justify-between border border-white/[0.07] transition-all duration-300 hover:-translate-y-1 group" data-purpose="feature-card-focus-timer">
+   258→<div>
+   259→<!-- Header and Icon -->
+   260→<div class="flex items-center justify-between mb-5">
+   261→<div class="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.15)] group-hover:scale-105 transition-transform duration-300">
+   262→<svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24">
+   263→<path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round"></path>
+   264→</svg>
+   265→</div>
+   266→<!-- Session Pill -->
+   267→<span class="text-xs font-mono font-medium text-amber-400/90 bg-amber-950/40 border border-amber-800/40 px-2.5 py-1 rounded-full">25 / 5 min</span>
+   268→</div>
+   269→<h3 class="text-xl font-bold text-white mb-2.5 flex items-center gap-2">
+   270→            Focus Timer ⏱️
+   271→          </h3>
+   272→<p class="text-sm text-zinc-400 leading-relaxed">
+   273→            Built-in Pomodoro timer with session tracking, break cycles, and ambient sound cues to keep you in the zone.
+   274→          </p>
+   275→</div>
+   276→<!-- Custom Mini UI: Active Timer Widget -->
+   277→<div class="mt-6 pt-4 border-t border-white/5 flex items-center justify-between">
+   278→<div class="flex items-center gap-3">
+   279→<!-- Progress Arc representation -->
+   280→<div class="relative w-8 h-8 rounded-full border-2 border-amber-500/30 flex items-center justify-center">
+   281→<div class="absolute inset-0 rounded-full border-2 border-amber-400 border-t-transparent animate-spin" style="animation-duration: 8s;"></div>
+   282→<div class="w-2 h-2 rounded-full bg-amber-400"></div>
+   283→</div>
+   284→<span class="font-mono text-sm font-semibold text-white tracking-wider">18:42</span>
+   285→</div>
+   286→<div class="flex items-center gap-1.5 text-xs text-zinc-400">
+   287→<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+   288→<span>Cycle 3/4</span>
+   289→</div>
+   290→</div>
+   291→</article>
+   292→<!-- Card 5: Focus BGM 🎵 (Spans 1 col, interactive-style music player visual) -->
+   293→<article class="card-glass rounded-2xl p-6 md:p-7 flex flex-col justify-between border border-white/[0.07] transition-all duration-300 hover:-translate-y-1 group" data-purpose="feature-card-bgm">
+   294→<div>
+   295→<!-- Header and Icon -->
+   296→<div class="flex items-center justify-between mb-5">
+   297→<div class="w-12 h-12 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.15)] group-hover:scale-105 transition-transform duration-300">
+   298→<svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24">
+   299→<path d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12 0c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" stroke-linecap="round" stroke-linejoin="round"></path>
+   300→</svg>
+   301→</div>
+   302→<!-- Lo-fi Status -->
+   303→<span class="inline-flex items-center gap-1.5 text-xs font-mono text-cyan-300 bg-cyan-950/40 px-2.5 py-1 rounded-full border border-cyan-800/40">
+   304→<span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping"></span>
+   305→              Lo-Fi Radio
+   306→            </span>
+   307→</div>
+   308→<h3 class="text-xl font-bold text-white mb-2.5 flex items-center gap-2">
+   309→            Focus BGM 🎵
+   310→          </h3>
+   311→<p class="text-sm text-zinc-400 leading-relaxed">
+   312→            Built-in lofi background music that loops during your focus sessions — pick a track, hit start, stay in flow.
+   313→          </p>
+   314→</div>
+   315→<!-- Custom Mini UI: Soundwaves & Audio preview -->
+   316→<div class="mt-6 pt-4 border-t border-white/5 flex items-center justify-between">
+   317→<div class="flex items-center gap-2">
+   318→<div class="w-7 h-7 rounded-full bg-cyan-500/20 flex items-center justify-center text-cyan-300">
+   319→<svg class="w-3.5 h-3.5 fill-current" viewbox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+   320→</div>
+   321→<span class="text-xs text-zinc-300 font-medium truncate max-w-[110px]">Midnight Rain</span>
+   322→</div>
+   323→<!-- Animated Equalizer Bars -->
+   324→<div aria-label="Audio wave" class="flex items-end gap-1 h-5">
+   325→<div class="w-1 bg-cyan-400 rounded-full animate-soundwave" style="animation-delay: 0.1s;"></div>
+   326→<div class="w-1 bg-cyan-400 rounded-full animate-soundwave" style="animation-delay: 0.3s;"></div>
+   327→<div class="w-1 bg-cyan-400 rounded-full animate-soundwave" style="animation-delay: 0.2s;"></div>
+   328→<div class="w-1 bg-cyan-400 rounded-full animate-soundwave" style="animation-delay: 0.4s;"></div>
+   329→</div>
+   330→</div>
+   331→</article>
+   332→<!-- Card 6: Browser Notifications 🔔 (Spans 1 col, notification card preview) -->
+   333→<article class="card-glass rounded-2xl p-6 md:p-7 flex flex-col justify-between border border-white/[0.07] transition-all duration-300 hover:-translate-y-1 group" data-purpose="feature-card-notifications">
+   334→<div>
+   335→<!-- Header and Icon -->
+   336→<div class="flex items-center justify-between mb-5">
+   337→<div class="w-12 h-12 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 shadow-[0_0_15px_rgba(244,63,94,0.15)] group-hover:scale-105 transition-transform duration-300">
+   338→<svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24">
+   339→<path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" stroke-linecap="round" stroke-linejoin="round"></path>
+   340→</svg>
+   341→</div>
+   342→<span class="text-xs font-mono text-zinc-400 bg-white/5 border border-white/10 px-2 py-0.5 rounded">Desktop Native</span>
+   343→</div>
+   344→<h3 class="text-xl font-bold text-white mb-2.5 flex items-center gap-2">
+   345→            Browser Notifications 🔔
+   346→          </h3>
+   347→<p class="text-sm text-zinc-400 leading-relaxed">
+   348→            Daily in-browser reminders at your chosen time when habits are due — never miss a check-in again.
+   349→          </p>
+   350→</div>
+   351→<!-- Custom Mini UI: Simulated Toast Notification -->
+   352→<div class="mt-6 pt-4 border-t border-white/5">
+   353→<div class="rounded-lg bg-white/[0.04] border border-white/10 p-2.5 flex items-center justify-between shadow-sm">
+   354→<div class="flex items-center gap-2.5 min-w-0">
+   355→<span class="text-sm">💧</span>
+   356→<div class="truncate">
+   357→<p class="text-xs font-medium text-white truncate">Drink Water Habit</p>
+   358→<p class="text-[11px] text-zinc-400 truncate">Scheduled for 3:00 PM</p>
+   359→</div>
+   360→</div>
+   361→<span class="text-[10px] font-mono text-rose-400 bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/20">Now</span>
+   362→</div>
+   363→</div>
+   364→</article>
+   365→<!-- Card 7: Custom Targets 🎯 (Spans 1 or 2 cols on responsive layout) -->
+   366→<article class="card-glass rounded-2xl p-6 md:p-7 flex flex-col justify-between border border-white/[0.07] transition-all duration-300 hover:-translate-y-1 group md:col-span-2 lg:col-span-1" data-purpose="feature-card-custom-targets">
+   367→<div>
+   368→<!-- Header and Icon -->
+   369→<div class="flex items-center justify-between mb-5">
+   370→<div class="w-12 h-12 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400 shadow-[0_0_15px_rgba(139,92,246,0.15)] group-hover:scale-105 transition-transform duration-300">
+   371→<svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24">
+   372→<path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round"></path>
+   373→</svg>
+   374→</div>
+   375→<span class="text-xs font-mono text-violet-300 bg-violet-950/40 border border-violet-800/40 px-2.5 py-1 rounded-full">Unit Counters</span>
+   376→</div>
+   377→<h3 class="text-xl font-bold text-white mb-2.5 flex items-center gap-2">
+   378→            Custom Targets 🎯
+   379→          </h3>
+   380→<p class="text-sm text-zinc-400 leading-relaxed">
+   381→            Track habits like '8 glasses of water' with daily target counts.
+   382→          </p>
+   383→</div>
+   384→<!-- Custom Mini UI: Habit Target Counter Stepper -->
+   385→<div class="mt-6 pt-4 border-t border-white/5 space-y-2">
+   386→<div class="flex justify-between items-center text-xs">
+   387→<span class="text-zinc-300 font-medium">Daily Target Progress</span>
+   388→<span class="font-mono font-bold text-violet-400">6 / 8 glasses</span>
+   389→</div>
+   390→<!-- Progress bar -->
+   391→<div class="w-full h-2 rounded-full bg-zinc-800 overflow-hidden">
+   392→<div class="h-full bg-gradient-to-r from-violet-500 to-indigo-400 rounded-full w-3/4"></div>
+   393→</div>
+   394→</div>
+   395→</article>
+   396→<!-- Card 8: Weekly Email Reminders [SOON] ✉️ (Spans 2 cols on lg screens for prominent finish) -->
+   397→<article class="card-glass rounded-2xl p-6 md:p-7 flex flex-col justify-between border border-white/[0.07] transition-all duration-300 hover:-translate-y-1 group md:col-span-2 lg:col-span-2 relative overflow-hidden" data-purpose="feature-card-email-reminders">
+   398→<!-- Subtle Glow Accent in corner -->
+   399→<div class="absolute top-0 right-0 w-64 h-64 bg-amber-500/5 blur-3xl -z-0 pointer-events-none"></div>
+   400→<div class="relative z-10">
+   401→<!-- Header and Icon -->
+   402→<div class="flex items-center justify-between mb-5">
+   403→<div class="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.1)] group-hover:scale-105 transition-transform duration-300">
+   404→<svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24">
+   405→<path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round"></path>
+   406→</svg>
+   407→</div>
+   408→<!-- Sleek Amber "SOON" Badge -->
+   409→<span class="shimmer-badge px-3 py-1 rounded-full text-xs font-bold text-amber-300 border border-amber-500/30 uppercase tracking-widest shadow-sm">
+   410→              SOON
+   411→            </span>
+   412→</div>
+   413→<div class="flex flex-col sm:flex-row sm:items-baseline gap-2 mb-2.5">
+   414→<h3 class="text-xl font-bold text-white flex items-center gap-2">
+   415→              Weekly Email Reminders ✉️
+   416→            </h3>
+   417→</div>
+   418→<p class="text-sm text-zinc-400 leading-relaxed max-w-2xl">
+   419→            Automated weekly email summaries with your progress, streaks, and insights — delivered every Monday.
+   420→          </p>
+   421→</div>
+   422→<!-- Custom Mini UI: Monday Delivery preview snippet -->
+   423→<div class="relative z-10 mt-6 pt-4 border-t border-white/5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+   424→<div class="flex items-center gap-2.5 text-xs text-zinc-400">
+   425→<span class="w-2 h-2 rounded-full bg-amber-400"></span>
+   426→<span>Delivery cadence: <strong class="text-zinc-200">Mondays at 08:00 AM EST</strong></span>
+   427→</div>
+   428→<div class="inline-flex items-center gap-2 text-xs font-medium text-amber-300/90 bg-amber-500/10 px-3 py-1.5 rounded-lg border border-amber-500/20">
+   429→<span>✨ Get on waitlist</span>
+   430→<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+   431→</div>
+   432→</div>
+   433→</article>
+   434→</section>
+   435→<!-- END: BentoFeatureGrid -->
+   436→<!-- BEGIN: BottomFeatureFooter -->
+   437→<section class="mt-16 pt-10 border-t border-white/[0.08] flex flex-col sm:flex-row items-center justify-between gap-6 text-sm text-zinc-400" data-purpose="bottom-status-anchor">
+   438→<div class="flex items-center gap-3">
+   439→<span class="inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400 ring-4 ring-emerald-500/20"></span>
+   440→<span>All systems functional &amp; synced across web clients</span>
+   441→</div>
+   442→<div class="flex items-center gap-4">
+   443→<span class="text-xs text-zinc-500">Zero third-party trackers</span>
+   444→<span class="text-zinc-700">•</span>
+   445→<span class="text-xs text-zinc-500">100% Offline-First Architecture</span>
+   446→</div>
+   447→</section>
+   448→<!-- END: BottomFeatureFooter -->
+   449→</main>
+   450→<!-- END: MainContent -->
+   451→<!-- BEGIN: InteractiveScripts -->
+   452→<script data-purpose="tab-filter-interaction">
+   453→    // Interactive filter behavior to polish desktop responsiveness
+   454→    document.addEventListener('DOMContentLoaded', () => {
+   455→      const filterButtons = document.querySelectorAll('[data-purpose="filter-tabs"] button');
+   456→      
+   457→      filterButtons.forEach(btn => {
+   458→        btn.addEventListener('click', () => {
+   459→          filterButtons.forEach(b => {
+   460→            b.className = "px-4 py-2 rounded-full text-xs font-medium bg-zinc-900/80 text-zinc-400 border border-white/5 hover:border-white/20 hover:text-white transition";
+   461→          });
+   462→          btn.className = "px-4 py-2 rounded-full text-xs font-medium bg-zinc-100 text-zinc-900 shadow-sm transition";
+   463→        });
+   464→      });
+   465→    });
+   466→  </script>
+   467→<!-- END: InteractiveScripts -->
+   468→</body></html>

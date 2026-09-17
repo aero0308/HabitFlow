@@ -1,0 +1,810 @@
+     1→     1→"use client";
+     2→     2→
+     3→     3→import { useMemo, useState, useEffect, useRef, useCallback } from "react";
+     4→     4→import { motion, AnimatePresence } from "framer-motion";
+     5→     5→import {
+     6→     6→  Flame, Target, CheckCircle2, Plus, Minus, ChevronLeft, ChevronRight,
+     7→     7→  Calendar as CalendarIcon, TrendingUp, TrendingDown, Sparkles, Quote,
+     8→     8→  Zap, Award, ArrowRight, StickyNote, Keyboard, Snowflake,
+     9→     9→} from "lucide-react";
+    10→    10→import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isToday } from "date-fns";
+    11→    11→import { useDashboard, useCheckin, useUncheck } from "@/hooks/use-checkins";
+    12→    12→import { useCalendar, useWeeklySummary, useAchievements } from "@/hooks/use-analytics";
+    13→    13→import { useFreezeDay } from "@/hooks/use-habits";
+    14→    14→import { Button } from "@/components/ui/button";
+    15→    15→import { Card } from "@/components/ui/card";
+    16→    16→import { Skeleton } from "@/components/ui/skeleton";
+    17→    17→import { Badge } from "@/components/ui/badge";
+    18→    18→import { Progress } from "@/components/ui/progress";
+    19→    19→import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+    20→    20→import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+    21→    21→import { Textarea } from "@/components/ui/textarea";
+    22→    22→import { Label } from "@/components/ui/label";
+    23→    23→import { useNav } from "@/lib/nav-store";
+    24→    24→import { useAuth } from "@/features/auth/auth-context";
+    25→    25→import { useConfetti } from "@/lib/confetti";
+    26→    26→import { toast } from "sonner";
+    27→    27→import { cn } from "@/lib/utils";
+    28→    28→
+    29→    29→function todayStr() {
+    30→    30→  const d = new Date();
+    31→    31→  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    32→    32→}
+    33→    33→
+    34→    34→const QUOTES = [
+    35→    35→  { text: "We are what we repeatedly do. Excellence, then, is not an act, but a habit.", author: "Aristotle" },
+    36→    36→  { text: "Small habits don't add up. They compound.", author: "James Clear" },
+    37→    37→  { text: "You do not rise to the level of your goals. You fall to the level of your systems.", author: "James Clear" },
+    38→    38→  { text: "The chains of habit are too light to be felt until they are too heavy to be broken.", author: "Warren Buffett" },
+    39→    39→  { text: "Motivation is what gets you started. Habit is what keeps you going.", author: "Jim Ryun" },
+    40→    40→  { text: "Success is the sum of small efforts repeated day in and day out.", author: "Robert Collier" },
+    41→    41→  { text: "Discipline is choosing between what you want now and what you want most.", author: "Abraham Lincoln" },
+    42→    42→  { text: "A year from now you may wish you had started today.", author: "Karen Lamb" },
+    43→    43→];
+    44→    44→
+    45→    45→function quoteOfTheDay() {
+    46→    46→  const day = Math.floor(Date.now() / 86400000);
+    47→    47→  return QUOTES[day % QUOTES.length];
+    48→    48→}
+    49→    49→
+    50→    50→function greeting(name: string) {
+    51→    51→  const h = new Date().getHours();
+    52→    52→  if (h < 5) return `Burning the midnight oil, ${name}?`;
+    53→    53→  if (h < 12) return `Good morning, ${name}`;
+    54→    54→  if (h < 18) return `Good afternoon, ${name}`;
+    55→    55→  return `Good evening, ${name}`;
+    56→    56→}
+    57→    57→
+    58→    58→function ProgressRing({ pct, size = 148 }: { pct: number; size?: number }) {
+    59→    59→  const stroke = 12;
+    60→    60→  const r = (size - stroke) / 2;
+    61→    61→  const circ = 2 * Math.PI * r;
+    62→    62→  const offset = circ - (pct / 100) * circ;
+    63→    63→  return (
+    64→    64→    <div className="relative inline-flex items-center justify-center" style={{ width: size, height: size }}>
+    65→    65→      <svg width={size} height={size} className="-rotate-90">
+    66→    66→        <defs>
+    67→    67→          <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+    68→    68→            <stop offset="0%" stopColor="#10b981" />
+    69→    69→            <stop offset="100%" stopColor="#0d9488" />
+    70→    70→          </linearGradient>
+    71→    71→        </defs>
+    72→    72→        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="currentColor" strokeWidth={stroke} className="text-muted/20" />
+    73→    73→        <motion.circle
+    74→    74→          cx={size / 2}
+    75→    75→          cy={size / 2}
+    76→    76→          r={r}
+    77→    77→          fill="none"
+    78→    78→          stroke="url(#ringGrad)"
+    79→    79→          strokeWidth={stroke}
+    80→    80→          strokeDasharray={circ}
+    81→    81→          strokeLinecap="round"
+    82→    82→          initial={{ strokeDashoffset: circ }}
+    83→    83→          animate={{ strokeDashoffset: offset }}
+    84→    84→          transition={{ duration: 1.2, ease: "easeOut" }}
+    85→    85→        />
+    86→    86→      </svg>
+    87→    87→      <div className="absolute inset-0 flex flex-col items-center justify-center">
+    88→    88→        <motion.span
+    89→    89→          key={pct}
+    90→    90→          initial={{ scale: 0.5, opacity: 0 }}
+    91→    91→          animate={{ scale: 1, opacity: 1 }}
+    92→    92→          transition={{ type: "spring", stiffness: 200, damping: 15 }}
+    93→    93→          className="text-4xl font-bold text-foreground tabular-nums"
+    94→    94→        >
+    95→    95→          {pct}%
+    96→    96→        </motion.span>
+    97→    97→        <span className="text-xs text-muted-foreground mt-0.5">today</span>
+    98→    98→      </div>
+    99→    99→    </div>
+   100→   100→  );
+   101→   101→}
+   102→   102→
+   103→   103→function intensityClass(ratio: number, scheduled: number) {
+   104→   104→  if (scheduled === 0) return "bg-muted/30";
+   105→   105→  if (ratio === 0) return "bg-muted/60 dark:bg-muted/40";
+   106→   106→  if (ratio < 0.34) return "bg-emerald-200 dark:bg-emerald-900";
+   107→   107→  if (ratio < 0.67) return "bg-emerald-400 dark:bg-emerald-700";
+   108→   108→  if (ratio < 1) return "bg-emerald-500 dark:bg-emerald-600";
+   109→   109→  return "bg-emerald-600 dark:bg-emerald-500";
+   110→   110→}
+   111→   111→
+   112→   112→const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+   113→   113→
+   114→   114→export function DashboardPage() {
+   115→   115→  const { data: dash, isLoading } = useDashboard();
+   116→   116→  const { data: weekly } = useWeeklySummary();
+   117→   117→  const { data: ach } = useAchievements();
+   118→   118→  const checkinMut = useCheckin();
+   119→   119→  const uncheckMut = useUncheck();
+   120→   120→  const freezeMut = useFreezeDay();
+   121→   121→  const { go } = useNav();
+   122→   122→  const { user } = useAuth();
+   123→   123→  const today = todayStr();
+   124→   124→  const quote = useMemo(() => quoteOfTheDay(), []);
+   125→   125→  const { fire: fireConfetti } = useConfetti();
+   126→   126→
+   127→   127→  const [calMonth, setCalMonth] = useState(() => new Date());
+   128→   128→  const monthStr = format(calMonth, "yyyy-MM");
+   129→   129→  const { data: cal } = useCalendar(monthStr);
+   130→   130→
+   131→   131→  // Track previous completion to detect the moment all habits get done
+   132→   132→  const prevAllDoneRef = useRef(false);
+   133→   133→  const [showShortcuts, setShowShortcuts] = useState(false);
+   134→   134→  const [noteDialog, setNoteDialog] = useState<{ habitId: string; habitName: string; note: string } | null>(null);
+   135→   135→  const [noteDraft, setNoteDraft] = useState("");
+   136→   136→
+   137→   137→  const calendarGrid = useMemo(() => {
+   138→   138→    if (!cal) return null;
+   139→   139→    const start = startOfMonth(calMonth);
+   140→   140→    const end = endOfMonth(calMonth);
+   141→   141→    const days = eachDayOfInterval({ start, end });
+   142→   142→    const firstJsDay = getDay(days[0]);
+   143→   143→    const padFront = (firstJsDay + 6) % 7;
+   144→   144→    const padded: (Date | null)[] = [...Array(padFront).fill(null), ...days];
+   145→   145→    const dayMap = new Map(cal.days.map((d) => [d.date, d]));
+   146→   146→    return { padded, dayMap };
+   147→   147→  }, [cal, calMonth]);
+   148→   148→
+   149→   149→  const allDone = dash && dash.scheduledToday > 0 && dash.completedToday === dash.scheduledToday;
+   150→   150→  const earnedBadges = ach?.earnedCount ?? 0;
+   151→   151→
+   152→   152→  // Fire confetti when transitioning to all-done
+   153→   153→  useEffect(() => {
+   154→   154→    if (allDone && !prevAllDoneRef.current) {
+   155→   155→      fireConfetti({ count: 160 });
+   156→   156→      toast.success("All done! 🎉", { description: "Every habit completed today. Great work!" });
+   157→   157→    }
+   158→   158→    prevAllDoneRef.current = !!allDone;
+   159→   159→  }, [allDone, fireConfetti]);
+   160→   160→
+   161→   161→  // Helper to toggle a habit (used by keyboard shortcuts)
+   162→   162→  const toggleHabit = useCallback((habitId: string) => {
+   163→   163→    const h = dash?.todaysHabits.find((x) => x.id === habitId);
+   164→   164→    if (!h) return;
+   165→   165→    if (h.completed) {
+   166→   166→      uncheckMut.mutate({ habitId, date: today });
+   167→   167→    } else {
+   168→   168→      checkinMut.mutate({ habitId, date: today, count: h.targetCount });
+   169→   169→    }
+   170→   170→  }, [dash, today, checkinMut, uncheckMut]);
+   171→   171→
+   172→   172→  // Keyboard shortcuts
+   173→   173→  useEffect(() => {
+   174→   174→    function onKey(e: KeyboardEvent) {
+   175→   175→      // Ignore when typing in inputs/dialogs
+   176→   176→      const target = e.target as HTMLElement;
+   177→   177→      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) return;
+   178→   178→      if (noteDialog || showShortcuts) return;
+   179→   179→
+   180→   180→      // Number keys 1-9: toggle the Nth today's habit
+   181→   181→      if (/^[1-9]$/.test(e.key)) {
+   182→   182→        const idx = Number(e.key) - 1;
+   183→   183→        const habits = dash?.todaysHabits;
+   184→   184→        if (habits && idx < habits.length) {
+   185→   185→          e.preventDefault();
+   186→   186→          toggleHabit(habits[idx].id);
+   187→   187→        }
+   188→   188→        return;
+   189→   189→      }
+   190→   190→      if (e.key === "?") {
+   191→   191→        e.preventDefault();
+   192→   192→        setShowShortcuts(true);
+   193→   193→      }
+   194→   194→    }
+   195→   195→    window.addEventListener("keydown", onKey);
+   196→   196→    return () => window.removeEventListener("keydown", onKey);
+   197→   197→  }, [dash, toggleHabit, noteDialog, showShortcuts]);
+   198→   198→
+   199→   199→  function openNoteDialog(habitId: string, habitName: string, currentNote: string) {
+   200→   200→    setNoteDraft(currentNote || "");
+   201→   201→    setNoteDialog({ habitId, habitName, note: currentNote });
+   202→   202→  }
+   203→   203→
+   204→   204→  function saveNote() {
+   205→   205→    if (!noteDialog) return;
+   206→   206→    const h = dash?.todaysHabits.find((x) => x.id === noteDialog.habitId);
+   207→   207→    if (!h) return;
+   208→   208→    // Save note by upserting the check-in with the current count
+   209→   209→    checkinMut.mutate(
+   210→   210→      { habitId: noteDialog.habitId, date: today, count: h.count > 0 ? h.count : h.targetCount, note: noteDraft },
+   211→   211→      { onSettled: () => setNoteDialog(null) },
+   212→   212→    );
+   213→   213→    toast.success("Note saved");
+   214→   214→  }
+   215→   215→
+   216→   216→  return (
+   217→   217→    <div className="space-y-6">
+   218→   218→      {/* Hero greeting */}
+   219→   219→      <motion.div
+   220→   220→        initial={{ opacity: 0, y: -10 }}
+   221→   221→        animate={{ opacity: 1, y: 0 }}
+   222→   222→        transition={{ duration: 0.4 }}
+   223→   223→        className="flex items-center justify-between flex-wrap gap-3"
+   224→   224→      >
+   225→   225→        <div>
+   226→   226→          <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">
+   227→   227→            {user ? greeting(user.name.split(" ")[0]) : "Welcome back"}
+   228→   228→          </h1>
+   229→   229→          <p className="text-sm text-muted-foreground mt-0.5">
+   230→   230→            {format(new Date(), "EEEE, MMMM d")}
+   231→   231→            {allDone && <span className="text-emerald-600 dark:text-emerald-400 font-medium ml-2">· All done for today! 🎉</span>}
+   232→   232→          </p>
+   233→   233→        </div>
+   234→   234→        {earnedBadges > 0 && (
+   235→   235→          <div className="flex items-center gap-2">
+   236→   236→            <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => setShowShortcuts(true)} aria-label="Keyboard shortcuts" title="Keyboard shortcuts (press ?)">
+   237→   237→              <Keyboard className="w-4 h-4" />
+   238→   238→            </Button>
+   239→   239→            <Button variant="outline" size="sm" onClick={() => go({ name: "achievements" })} className="gap-2">
+   240→   240→              <Award className="w-4 h-4 text-amber-500" />
+   241→   241→              <span className="font-semibold">{earnedBadges}</span>
+   242→   242→              <span className="text-muted-foreground hidden sm:inline">badges</span>
+   243→   243→            </Button>
+   244→   244→          </div>
+   245→   245→        )}
+   246→   246→        {!earnedBadges && (
+   247→   247→          <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => setShowShortcuts(true)} aria-label="Keyboard shortcuts" title="Keyboard shortcuts (press ?)">
+   248→   248→            <Keyboard className="w-4 h-4" />
+   249→   249→          </Button>
+   250→   250→        )}
+   251→   251→      </motion.div>
+   252→   252→
+   253→   253→      {/* Top row: progress ring + weekly chart + stats */}
+   254→   254→      <div className="grid gap-4 md:grid-cols-3">
+   255→   255→        {/* Progress ring card */}
+   256→   256→        <Card className="p-6 flex flex-col items-center justify-center relative overflow-hidden">
+   257→   257→          <div className="absolute -top-8 -right-8 w-32 h-32 bg-emerald-500/5 rounded-full blur-2xl" />
+   258→   258→          {isLoading ? (
+   259→   259→            <Skeleton className="h-36 w-36 rounded-full" />
+   260→   260→          ) : (
+   261→   261→            <>
+   262→   262→              <ProgressRing pct={dash?.completionPct ?? 0} />
+   263→   263→              <div className="mt-4 text-center relative">
+   264→   264→                <div className="text-sm font-medium">
+   265→   265→                  {dash?.completedToday ?? 0} / {dash?.scheduledToday ?? 0} habits done
+   266→   266→                </div>
+   267→   267→                <div className="text-xs text-muted-foreground mt-0.5">
+   268→   268→                  {dash?.totalProgress ?? 0} / {dash?.totalTarget ?? 0} total progress
+   269→   269→                </div>
+   270→   270→              </div>
+   271→   271→            </>
+   272→   272→          )}
+   273→   273→        </Card>
+   274→   274→
+   275→   275→        {/* Weekly summary card */}
+   276→   276→        <Card className="p-6 md:col-span-2">
+   277→   277→          <div className="flex items-center justify-between mb-4">
+   278→   278→            <div>
+   279→   279→              <h2 className="text-sm font-semibold flex items-center gap-1.5">
+   280→   280→                <TrendingUp className="w-4 h-4 text-emerald-500" />
+   281→   281→                This week
+   282→   282→              </h2>
+   283→   283→              <p className="text-xs text-muted-foreground mt-0.5">Mon – Sun</p>
+   284→   284→            </div>
+   285→   285→            {weekly && (
+   286→   286→              <div className="text-right">
+   287→   287→                <div className="text-2xl font-bold tabular-nums">{weekly.thisWeek.pct}%</div>
+   288→   288→                <div className={cn(
+   289→   289→                  "text-xs font-medium flex items-center gap-0.5 justify-end",
+   290→   290→                  weekly.delta > 0 ? "text-emerald-600 dark:text-emerald-400" : weekly.delta < 0 ? "text-rose-500" : "text-muted-foreground",
+   291→   291→                )}>
+   292→   292→                  {weekly.delta > 0 && <TrendingUp className="w-3 h-3" />}
+   293→   293→                  {weekly.delta < 0 && <TrendingDown className="w-3 h-3" />}
+   294→   294→                  {weekly.delta > 0 ? `+${weekly.delta}` : weekly.delta} vs last week
+   295→   295→                </div>
+   296→   296→              </div>
+   297→   297→            )}
+   298→   298→          </div>
+   299→   299→          {weekly ? (
+   300→   300→            <div className="flex items-end justify-between gap-2 h-24">
+   301→   301→              {weekly.days.map((d) => (
+   302→   302→                <div key={d.date} className="flex-1 flex flex-col items-center gap-1.5">
+   303→   303→                  <div className="w-full flex flex-col justify-end h-20 relative group">
+   304→   304→                    <div className="absolute inset-x-0 bottom-0 rounded-md bg-muted/30 h-full" />
+   305→   305→                    <motion.div
+   306→   306→                      className="relative rounded-md w-full"
+   307→   307→                      style={{
+   308→   308→                        background: d.pct === 0 ? "transparent" : `linear-gradient(to top, #10b981, #0d9488)`,
+   309→   309→                        minHeight: 4,
+   310→   310→                      }}
+   311→   311→                      initial={{ height: 0 }}
+   312→   312→                      animate={{ height: `${Math.max(d.pct, d.scheduled > 0 ? 4 : 0)}%` }}
+   313→   313→                      transition={{ duration: 0.6, ease: "easeOut" }}
+   314→   314→                    />
+   315→   315→                    <div className="absolute -top-7 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-popover text-popover-foreground text-[10px] px-1.5 py-0.5 rounded shadow-md whitespace-nowrap pointer-events-none">
+   316→   316→                      {d.completed}/{d.scheduled}
+   317→   317→                    </div>
+   318→   318→                  </div>
+   319→   319→                  <span className={cn(
+   320→   320→                    "text-[10px] font-medium",
+   321→   321→                    d.isToday ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground",
+   322→   322→                  )}>
+   323→   323→                    {d.label}
+   324→   324→                  </span>
+   325→   325→                </div>
+   326→   326→              ))}
+   327→   327→            </div>
+   328→   328→          ) : (
+   329→   329→            <Skeleton className="h-24 w-full" />
+   330→   330→          )}
+   331→   331→        </Card>
+   332→   332→      </div>
+   333→   333→
+   334→   334→      {/* Stat cards row */}
+   335→   335→      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+   336→   336→        <StatCard
+   337→   337→          icon={Flame}
+   338→   338→          label="Active streaks"
+   339→   339→          value={dash?.streaks.filter((s) => s.currentStreak > 0).length ?? 0}
+   340→   340→          sub="on fire"
+   341→   341→          color="text-orange-500"
+   342→   342→          bg="bg-orange-500/10"
+   343→   343→          delay={0}
+   344→   344→        />
+   345→   345→        <StatCard
+   346→   346→          icon={Zap}
+   347→   347→          label="Best current"
+   348→   348→          value={Math.max(0, ...(dash?.streaks.map((s) => s.currentStreak) ?? [0]))}
+   349→   349→          sub="days"
+   350→   350→          color="text-emerald-500"
+   351→   351→          bg="bg-emerald-500/10"
+   352→   352→          delay={0.05}
+   353→   353→        />
+   354→   354→        <StatCard
+   355→   355→          icon={Target}
+   356→   356→          label="Total habits"
+   357→   357→          value={dash?.totalHabits ?? 0}
+   358→   358→          sub="tracked"
+   359→   359→          color="text-teal-500"
+   360→   360→          bg="bg-teal-500/10"
+   361→   361→          delay={0.1}
+   362→   362→        />
+   363→   363→        <StatCard
+   364→   364→          icon={Award}
+   365→   365→          label="Longest ever"
+   366→   366→          value={Math.max(0, ...(dash?.streaks.map((s) => s.longestStreak) ?? [0]))}
+   367→   367→          sub="days record"
+   368→   368→          color="text-purple-500"
+   369→   369→          bg="bg-purple-500/10"
+   370→   370→          delay={0.15}
+   371→   371→        />
+   372→   372→      </div>
+   373→   373→
+   374→   374→      {/* Today's habits */}
+   375→   375→      <div>
+   376→   376→        <div className="flex items-center justify-between mb-3">
+   377→   377→          <h2 className="text-lg font-semibold flex items-center gap-2">
+   378→   378→            Today&apos;s habits
+   379→   379→            {dash && dash.scheduledToday > 0 && (
+   380→   380→              <Badge variant="secondary" className="text-xs font-normal">
+   381→   381→                {dash.completedToday}/{dash.scheduledToday}
+   382→   382→              </Badge>
+   383→   383→            )}
+   384→   384→          </h2>
+   385→   385→          <Button variant="outline" size="sm" onClick={() => go({ name: "habits" })}>
+   386→   386→            <Plus className="w-4 h-4 mr-1" /> Manage
+   387→   387→          </Button>
+   388→   388→        </div>
+   389→   389→
+   390→   390→        {isLoading ? (
+   391→   391→          <div className="space-y-2">
+   392→   392→            {[1, 2, 3].map((i) => (
+   393→   393→              <Skeleton key={i} className="h-16 w-full rounded-xl" />
+   394→   394→            ))}
+   395→   395→          </div>
+   396→   396→        ) : dash && dash.todaysHabits.length > 0 ? (
+   397→   397→          <div className="space-y-2">
+   398→   398→            <AnimatePresence>
+   399→   399→              {dash.todaysHabits.map((h, i) => (
+   400→   400→                <motion.div
+   401→   401→                  key={h.id}
+   402→   402→                  initial={{ opacity: 0, x: -10 }}
+   403→   403→                  animate={{ opacity: 1, x: 0 }}
+   404→   404→                  transition={{ delay: i * 0.04 }}
+   405→   405→                >
+   406→   406→                  <HabitRow
+   407→   407→                    habit={h}
+   408→   408→                    index={i}
+   409→   409→                    today={today}
+   410→   410→                    onToggle={() => {
+   411→   411→                      if (h.completed) {
+   412→   412→                        uncheckMut.mutate({ habitId: h.id, date: today });
+   413→   413→                        toast("Undo", { description: `${h.name} marked incomplete` });
+   414→   414→                      } else {
+   415→   415→                        checkinMut.mutate({ habitId: h.id, date: today, count: h.targetCount });
+   416→   416→                        toast.success("Nice work!", { description: `${h.name} completed` });
+   417→   417→                      }
+   418→   418→                    }}
+   419→   419→                    onInc={() => {
+   420→   420→                      const next = Math.min(h.count + 1, h.targetCount);
+   421→   421→                      checkinMut.mutate({ habitId: h.id, date: today, count: next });
+   422→   422→                    }}
+   423→   423→                    onDec={() => {
+   424→   424→                      const next = Math.max(h.count - 1, 0);
+   425→   425→                      if (next === 0) {
+   426→   426→                        uncheckMut.mutate({ habitId: h.id, date: today });
+   427→   427→                      } else {
+   428→   428→                        checkinMut.mutate({ habitId: h.id, date: today, count: next });
+   429→   429→                      }
+   430→   430→                    }}
+   431→   431→                    onClick={() => go({ name: "habit", id: h.id })}
+   432→   432→                    onAddNote={() => openNoteDialog(h.id, h.name, h.note)}
+   433→   433→                    onFreeze={() => freezeMut.mutate({ habitId: h.id, date: today })}
+   434→   434→                  />
+   435→   435→                </motion.div>
+   436→   436→              ))}
+   437→   437→            </AnimatePresence>
+   438→   438→          </div>
+   439→   439→        ) : (
+   440→   440→          <Card className="p-8 text-center">
+   441→   441→            <div className="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto mb-3">
+   442→   442→              <Sparkles className="w-6 h-6 text-emerald-500" />
+   443→   443→            </div>
+   444→   444→            <p className="font-medium mb-1">No habits scheduled for today</p>
+   445→   445→            <p className="text-sm text-muted-foreground mb-4">Enjoy the day off, or create a new habit to track.</p>
+   446→   446→            <Button onClick={() => go({ name: "habits" })}>
+   447→   447→              <Plus className="w-4 h-4 mr-1" /> Create a habit
+   448→   448→            </Button>
+   449→   449→          </Card>
+   450→   450→        )}
+   451→   451→      </div>
+   452→   452→
+   453→   453→      {/* Quote + Calendar row */}
+   454→   454→      <div className="grid gap-4 lg:grid-cols-3">
+   455→   455→        {/* Motivational quote */}
+   456→   456→        <Card className="p-6 lg:col-span-1 bg-gradient-to-br from-emerald-500/5 via-teal-500/5 to-transparent border-emerald-500/20">
+   457→   457→          <Quote className="w-8 h-8 text-emerald-500/40 mb-3" />
+   458→   458→          <p className="text-sm font-medium leading-relaxed italic text-foreground">
+   459→   459→            &ldquo;{quote.text}&rdquo;
+   460→   460→          </p>
+   461→   461→          <p className="text-xs text-muted-foreground mt-3">— {quote.author}</p>
+   462→   462→        </Card>
+   463→   463→
+   464→   464→        {/* Calendar heatmap */}
+   465→   465→        <div className="lg:col-span-2">
+   466→   466→          <div className="flex items-center justify-between mb-3">
+   467→   467→            <h2 className="text-lg font-semibold flex items-center gap-2">
+   468→   468→              <CalendarIcon className="w-5 h-5" /> Calendar
+   469→   469→            </h2>
+   470→   470→            <div className="flex items-center gap-1">
+   471→   471→              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCalMonth(subMonths(calMonth, 1))}>
+   472→   472→                <ChevronLeft className="w-4 h-4" />
+   473→   473→              </Button>
+   474→   474→              <span className="text-sm font-medium w-28 text-center">{format(calMonth, "MMMM yyyy")}</span>
+   475→   475→              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCalMonth(addMonths(calMonth, 1))}>
+   476→   476→                <ChevronRight className="w-4 h-4" />
+   477→   477→              </Button>
+   478→   478→            </div>
+   479→   479→          </div>
+   480→   480→
+   481→   481→          <Card className="p-4">
+   482→   482→            {calendarGrid ? (
+   483→   483→              <div>
+   484→   484→                <div className="grid grid-cols-7 gap-1 mb-1">
+   485→   485→                  {WEEKDAYS.map((d) => (
+   486→   486→                    <div key={d} className="text-center text-[10px] font-semibold text-muted-foreground py-1 uppercase tracking-wide">
+   487→   487→                      {d}
+   488→   488→                    </div>
+   489→   489→                  ))}
+   490→   490→                </div>
+   491→   491→                <div className="grid grid-cols-7 gap-1">
+   492→   492→                  {calendarGrid.padded.map((date, i) => {
+   493→   493→                    if (!date) return <div key={i} />;
+   494→   494→                    const ds = format(date, "yyyy-MM-dd");
+   495→   495→                    const dayData = calendarGrid.dayMap.get(ds);
+   496→   496→                    const ratio = dayData?.ratio ?? 0;
+   497→   497→                    const scheduled = dayData?.scheduled ?? 0;
+   498→   498→                    return (
+   499→   499→                      <Popover key={ds}>
+   500→   500→                        <PopoverTrigger asChild>
+   501→   501→                          <button
+   502→   502→                            className={cn(
+   503→   503→                              "aspect-square rounded-md text-xs flex items-center justify-center transition-all hover:scale-110 hover:ring-2 hover:ring-emerald-400 hover:ring-offset-1 hover:ring-offset-background hover:z-10 relative",
+   504→   504→                              intensityClass(ratio, scheduled),
+   505→   505→                              isToday(date) && "ring-2 ring-emerald-500 ring-offset-1 ring-offset-background",
+   506→   506→                            )}
+   507→   507→                            aria-label={`${ds}: ${dayData?.completed ?? 0} of ${scheduled} done`}
+   508→   508→                          >
+   509→   509→                            <span className={cn("font-medium", ratio > 0.4 ? "text-white" : "text-foreground")}>
+   510→   510→                              {date.getDate()}
+   511→   511→                            </span>
+   512→   512→                          </button>
+   513→   513→                        </PopoverTrigger>
+   514→   514→                        <PopoverContent className="w-64 p-3" align="center">
+   515→   515→                          <div className="text-sm font-semibold mb-1">{format(date, "EEEE, MMM d")}</div>
+   516→   516→                          {scheduled === 0 ? (
+   517→   517→                            <p className="text-xs text-muted-foreground">No habits scheduled.</p>
+   518→   518→                          ) : (
+   519→   519→                            <>
+   520→   520→                              <div className="flex items-center justify-between mb-2">
+   521→   521→                                <p className="text-xs text-muted-foreground">
+   522→   522→                                  {dayData?.completed ?? 0} of {scheduled} completed
+   523→   523→                                </p>
+   524→   524→                                <Badge variant="secondary" className="text-[10px]">
+   525→   525→                                  {Math.round(ratio * 100)}%
+   526→   526→                                </Badge>
+   527→   527→                              </div>
+   528→   528→                              <div className="space-y-1.5">
+   529→   529→                                {dayData?.habits.map((h) => (
+   530→   530→                                  <div key={h.habitId} className="flex items-center gap-2 text-xs">
+   531→   531→                                    <span className="w-5 text-center">{h.icon}</span>
+   532→   532→                                    <span className="flex-1 truncate">{h.name}</span>
+   533→   533→                                    <span
+   534→   534→                                      className={cn(
+   535→   535→                                        "px-1.5 py-0.5 rounded text-[10px] font-medium",
+   536→   536→                                        h.completed ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300" : "bg-muted text-muted-foreground",
+   537→   537→                                      )}
+   538→   538→                                    >
+   539→   539→                                      {h.count}/{h.targetCount}
+   540→   540→                                    </span>
+   541→   541→                                  </div>
+   542→   542→                                ))}
+   543→   543→                              </div>
+   544→   544→                            </>
+   545→   545→                          )}
+   546→   546→                        </PopoverContent>
+   547→   547→                      </Popover>
+   548→   548→                    );
+   549→   549→                  })}
+   550→   550→                </div>
+   551→   551→                <div className="flex items-center justify-between mt-3">
+   552→   552→                  <button
+   553→   553→                    onClick={() => go({ name: "history" })}
+   554→   554→                    className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+   555→   555→                  >
+   556→   556→                    View full history <ArrowRight className="w-3 h-3" />
+   557→   557→                  </button>
+   558→   558→                  <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+   559→   559→                    <span>Less</span>
+   560→   560→                    <div className="w-3 h-3 rounded bg-muted/60" />
+   561→   561→                    <div className="w-3 h-3 rounded bg-emerald-200 dark:bg-emerald-900" />
+   562→   562→                    <div className="w-3 h-3 rounded bg-emerald-400 dark:bg-emerald-700" />
+   563→   563→                    <div className="w-3 h-3 rounded bg-emerald-600 dark:bg-emerald-500" />
+   564→   564→                    <span>More</span>
+   565→   565→                  </div>
+   566→   566→                </div>
+   567→   567→              </div>
+   568→   568→            ) : (
+   569→   569→              <Skeleton className="h-64 w-full" />
+   570→   570→            )}
+   571→   571→          </Card>
+   572→   572→        </div>
+   573→   573→      </div>
+   574→   574→
+   575→   575→      {/* Keyboard shortcuts dialog */}
+   576→   576→      <Dialog open={showShortcuts} onOpenChange={setShowShortcuts}>
+   577→   577→        <DialogContent className="sm:max-w-md">
+   578→   578→          <DialogHeader>
+   579→   579→            <DialogTitle className="flex items-center gap-2">
+   580→   580→              <Keyboard className="w-5 h-5 text-emerald-500" />
+   581→   581→              Keyboard shortcuts
+   582→   582→            </DialogTitle>
+   583→   583→          </DialogHeader>
+   584→   584→          <div className="space-y-2 py-2">
+   585→   585→            <ShortcutRow keys={["1", "…", "9"]} desc="Toggle the Nth today's habit" />
+   586→   586→            <ShortcutRow keys={["?"]} desc="Open this help dialog" />
+   587→   587→            <ShortcutRow keys={["Esc"]} desc="Close dialogs" />
+   588→   588→          </div>
+   589→   589→          <div className="text-xs text-muted-foreground bg-muted/50 rounded-lg p-3">
+   590→   590→            Shortcuts only work on the dashboard when no input is focused.
+   591→   591→          </div>
+   592→   592→          <DialogFooter>
+   593→   593→            <Button onClick={() => setShowShortcuts(false)}>Got it</Button>
+   594→   594→          </DialogFooter>
+   595→   595→        </DialogContent>
+   596→   596→      </Dialog>
+   597→   597→
+   598→   598→      {/* Note dialog */}
+   599→   599→      <Dialog open={!!noteDialog} onOpenChange={(o) => !o && setNoteDialog(null)}>
+   600→   600→        <DialogContent className="sm:max-w-md">
+   601→   601→          <DialogHeader>
+   602→   602→            <DialogTitle className="flex items-center gap-2">
+   603→   603→              <StickyNote className="w-5 h-5 text-amber-500" />
+   604→   604→              Note for {noteDialog?.habitName}
+   605→   605→            </DialogTitle>
+   606→   606→          </DialogHeader>
+   607→   607→          <div className="space-y-2 py-2">
+   608→   608→            <Label htmlFor="note">Add a note about today&apos;s check-in</Label>
+   609→   609→            <Textarea
+   610→   610→              id="note"
+   611→   611→              placeholder="How did it go? Anything to remember?"
+   612→   612→              value={noteDraft}
+   613→   613→              onChange={(e) => setNoteDraft(e.target.value)}
+   614→   614→              rows={4}
+   615→   615→              maxLength={500}
+   616→   616→            />
+   617→   617→            <p className="text-xs text-muted-foreground">{noteDraft.length}/500 characters</p>
+   618→   618→          </div>
+   619→   619→          <DialogFooter>
+   620→   620→            <Button variant="outline" onClick={() => setNoteDialog(null)}>Cancel</Button>
+   621→   621→            <Button onClick={saveNote} disabled={checkinMut.isPending}>Save note</Button>
+   622→   622→          </DialogFooter>
+   623→   623→        </DialogContent>
+   624→   624→      </Dialog>
+   625→   625→    </div>
+   626→   626→  );
+   627→   627→}
+   628→   628→
+   629→   629→function ShortcutRow({ keys, desc }: { keys: string[]; desc: string }) {
+   630→   630→  return (
+   631→   631→    <div className="flex items-center justify-between py-1.5">
+   632→   632→      <span className="text-sm text-muted-foreground">{desc}</span>
+   633→   633→      <div className="flex items-center gap-1">
+   634→   634→        {keys.map((k, i) => (
+   635→   635→          <kbd key={i} className="px-2 py-1 text-xs font-semibold bg-muted border rounded-md min-w-6 text-center">
+   636→   636→            {k}
+   637→   637→          </kbd>
+   638→   638→        ))}
+   639→   639→      </div>
+   640→   640→    </div>
+   641→   641→  );
+   642→   642→}
+   643→   643→
+   644→   644→function StatCard({
+   645→   645→  icon: Icon,
+   646→   646→  label,
+   647→   647→  value,
+   648→   648→  sub,
+   649→   649→  color,
+   650→   650→  bg,
+   651→   651→  delay = 0,
+   652→   652→}: {
+   653→   653→  icon: typeof Flame;
+   654→   654→  label: string;
+   655→   655→  value: number;
+   656→   656→  sub: string;
+   657→   657→  color: string;
+   658→   658→  bg: string;
+   659→   659→  delay?: number;
+   660→   660→}) {
+   661→   661→  return (
+   662→   662→    <motion.div
+   663→   663→      initial={{ opacity: 0, y: 10 }}
+   664→   664→      animate={{ opacity: 1, y: 0 }}
+   665→   665→      transition={{ delay }}
+   666→   666→    >
+   667→   667→      <Card className="p-4 hover:shadow-md transition-shadow">
+   668→   668→        <div className="flex items-start justify-between mb-2">
+   669→   669→          <div className={cn("w-9 h-9 rounded-lg flex items-center justify-center", bg)}>
+   670→   670→            <Icon className={cn("w-4.5 h-4.5", color)} />
+   671→   671→          </div>
+   672→   672→        </div>
+   673→   673→        <div className="text-2xl font-bold tabular-nums leading-none">{value}</div>
+   674→   674→        <div className="text-xs text-muted-foreground mt-1">{label}</div>
+   675→   675→        <div className="text-[10px] text-muted-foreground/70 mt-0.5">{sub}</div>
+   676→   676→      </Card>
+   677→   677→    </motion.div>
+   678→   678→  );
+   679→   679→}
+   680→   680→
+   681→   681→function HabitRow({
+   682→   682→  habit,
+   683→   683→  index,
+   684→   684→  onToggle,
+   685→   685→  onInc,
+   686→   686→  onDec,
+   687→   687→  onClick,
+   688→   688→  onAddNote,
+   689→   689→  onFreeze,
+   690→   690→}: {
+   691→   691→  habit: {
+   692→   692→    id: string;
+   693→   693→    name: string;
+   694→   694→    description: string;
+   695→   695→    color: string;
+   696→   696→    icon: string;
+   697→   697→    targetCount: number;
+   698→   698→    count: number;
+   699→   699→    completed: boolean;
+   700→   700→    note: string;
+   701→   701→    streak: { current: number; longest: number };
+   702→   702→  };
+   703→   703→  index: number;
+   704→   704→  today: string;
+   705→   705→  onToggle: () => void;
+   706→   706→  onInc: () => void;
+   707→   707→  onDec: () => void;
+   708→   708→  onClick: () => void;
+   709→   709→  onAddNote: () => void;
+   710→   710→  onFreeze: () => void;
+   711→   711→}) {
+   712→   712→  const multi = habit.targetCount > 1;
+   713→   713→  const progressPct = multi ? Math.round((habit.count / habit.targetCount) * 100) : habit.completed ? 100 : 0;
+   714→   714→  return (
+   715→   715→    <Card className={cn(
+   716→   716→      "p-3 flex items-center gap-3 transition-all hover:shadow-md group",
+   717→   717→      habit.completed && "border-emerald-500/50 bg-emerald-500/5",
+   718→   718→    )}>
+   719→   719→      {/* Keyboard shortcut number badge (hidden on mobile) */}
+   720→   720→      <div className="hidden sm:flex w-5 h-5 rounded bg-muted text-muted-foreground text-[10px] font-semibold items-center justify-center flex-shrink-0" title={`Press ${index + 1} to toggle`}>
+   721→   721→        {index + 1}
+   722→   722→      </div>
+   723→   723→      <button
+   724→   724→        onClick={onClick}
+   725→   725→        className="w-10 h-10 rounded-lg flex items-center justify-center text-xl flex-shrink-0 transition-transform group-hover:scale-105"
+   726→   726→        style={{ backgroundColor: habit.color + "20" }}
+   727→   727→        aria-label={habit.name}
+   728→   728→      >
+   729→   729→        {habit.icon}
+   730→   730→      </button>
+   731→   731→      <button onClick={onClick} className="flex-1 min-w-0 text-left">
+   732→   732→        <div className="flex items-center gap-2">
+   733→   733→          <span className="font-medium text-sm truncate">{habit.name}</span>
+   734→   734→          {habit.completed && (
+   735→   735→            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
+   736→   736→          )}
+   737→   737→          {habit.note && (
+   738→   738→            <StickyNote className="w-3 h-3 text-amber-500 flex-shrink-0" aria-label="Has note" />
+   739→   739→          )}
+   740→   740→        </div>
+   741→   741→        <div className="flex items-center gap-2 mt-1">
+   742→   742→          {habit.streak.current > 0 && (
+   743→   743→            <Badge variant="secondary" className="text-[10px] py-0 px-1.5 h-4 gap-0.5">
+   744→   744→              <Flame className="w-2.5 h-2.5 text-orange-500" />
+   745→   745→              {habit.streak.current}
+   746→   746→            </Badge>
+   747→   747→          )}
+   748→   748→          {multi && (
+   749→   749→            <div className="flex items-center gap-1.5 flex-1 max-w-32">
+   750→   750→              <Progress value={progressPct} className="h-1.5" />
+   751→   751→              <span className="text-[10px] text-muted-foreground tabular-nums whitespace-nowrap">
+   752→   752→                {habit.count}/{habit.targetCount}
+   753→   753→              </span>
+   754→   754→            </div>
+   755→   755→          )}
+   756→   756→          {habit.note && (
+   757→   757→            <span className="text-[10px] text-muted-foreground italic truncate max-w-24 hidden sm:inline">&ldquo;{habit.note}&rdquo;</span>
+   758→   758→          )}
+   759→   759→        </div>
+   760→   760→      </button>
+   761→   761→
+   762→   762→      {/* Note button */}
+   763→   763→      <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0" onClick={onAddNote} aria-label={`Add note for ${habit.name}`} title="Add note">
+   764→   764→        <StickyNote className={cn("w-4 h-4", habit.note ? "text-amber-500" : "text-muted-foreground")} />
+   765→   765→      </Button>
+   766→   766→
+   767→   767→      {/* Freeze button (only show if not completed today) */}
+   768→   768→      {!habit.completed && (
+   769→   769→        <Button
+   770→   770→          variant="ghost"
+   771→   771→          size="icon"
+   772→   772→          className="h-8 w-8 flex-shrink-0"
+   773→   773→          onClick={onFreeze}
+   774→   774→          aria-label={`Freeze today for ${habit.name}`}
+   775→   775→          title="Freeze this day to protect your streak"
+   776→   776→        >
+   777→   777→          <Snowflake className="w-4 h-4 text-muted-foreground hover:text-sky-500 transition-colors" />
+   778→   778→        </Button>
+   779→   779→      )}
+   780→   780→
+   781→   781→      {multi ? (
+   782→   782→        <div className="flex items-center gap-1">
+   783→   783→          <Button variant="outline" size="icon" className="h-8 w-8" onClick={onDec} disabled={habit.count === 0}>
+   784→   784→            <Minus className="w-3.5 h-3.5" />
+   785→   785→          </Button>
+   786→   786→          <div className="w-10 text-center text-sm font-semibold tabular-nums">{habit.count}</div>
+   787→   787→          <Button variant="outline" size="icon" className="h-8 w-8" onClick={onInc} disabled={habit.completed}>
+   788→   788→            <Plus className="w-3.5 h-3.5" />
+   789→   789→          </Button>
+   790→   790→        </div>
+   791→   791→      ) : (
+   792→   792→        <Button
+   793→   793→          variant={habit.completed ? "default" : "outline"}
+   794→   794→          size="sm"
+   795→   795→          onClick={onToggle}
+   796→   796→          className={habit.completed ? "bg-emerald-600 hover:bg-emerald-700" : ""}
+   797→   797→        >
+   798→   798→          {habit.completed ? (
+   799→   799→            <>
+   800→   800→              <CheckCircle2 className="w-4 h-4 mr-1" /> Done
+   801→   801→            </>
+   802→   802→          ) : (
+   803→   803→            "Mark done"
+   804→   804→          )}
+   805→   805→        </Button>
+   806→   806→      )}
+   807→   807→    </Card>
+   808→   808→  );
+   809→   809→}
+   810→   810→
