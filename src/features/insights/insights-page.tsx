@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Lightbulb,
@@ -10,6 +11,7 @@ import {
   Sparkles,
   CheckCircle2,
   ArrowRight,
+  Share2,
 } from "lucide-react";
 import { useInsights } from "@/hooks/use-analytics";
 import { useNav } from "@/lib/nav-store";
@@ -21,6 +23,7 @@ import { cn } from "@/lib/utils";
 import type { Insight, InsightsResponse } from "@/types";
 import { CoachLetterCard } from "./components/CoachLetterCard";
 import { AIAssistantSection } from "./components/AIAssistantSection";
+import { ShareCardModal } from "@/features/share/components/ShareCardModal";
 
 /**
  * Maps an insight's `accent` string to a set of tailwind class tokens for the
@@ -90,6 +93,7 @@ function InsightTrendIcon({ type }: { type: string }) {
 export function InsightsPage() {
   const { data, isLoading } = useInsights();
   const { go } = useNav();
+  const [shareModalOpen, setShareModalOpen] = useState(false);
 
   if (isLoading || !data) {
     return <InsightsLoadingSkeleton />;
@@ -104,7 +108,8 @@ export function InsightsPage() {
       transition={{ duration: 0.35, ease: "easeOut" }}
       className="space-y-6"
     >
-      <Header />
+      <Header onShare={() => setShareModalOpen(true)} />
+      <ShareCardModal open={shareModalOpen} onOpenChange={setShareModalOpen} />
 
       <AIAssistantSection />
 
@@ -137,18 +142,30 @@ export function InsightsPage() {
   );
 }
 
-function Header() {
+function Header({ onShare }: { onShare: () => void }) {
   return (
-    <div className="flex items-start gap-3">
-      <div className="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
-        <Lightbulb className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+    <div className="flex items-start justify-between gap-3 flex-wrap">
+      <div className="flex items-start gap-3">
+        <div className="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
+          <Lightbulb className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+        </div>
+        <div className="min-w-0">
+          <h1 className="text-2xl font-bold tracking-tight">Insights</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Personalized patterns and recommendations from your data
+          </p>
+        </div>
       </div>
-      <div className="min-w-0">
-        <h1 className="text-2xl font-bold tracking-tight">Insights</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">
-          Personalized patterns and recommendations from your data
-        </p>
-      </div>
+      <Button
+        size="icon"
+        variant="ghost"
+        onClick={onShare}
+        aria-label="Share my progress"
+        title="Share my progress"
+        className="rounded-full text-violet-600 dark:text-violet-300 hover:bg-violet-500/10 hover:text-violet-600 dark:hover:text-violet-200"
+      >
+        <Share2 className="w-5 h-5" />
+      </Button>
     </div>
   );
 }

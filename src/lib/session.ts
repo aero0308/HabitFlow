@@ -53,6 +53,10 @@ export interface AuthUser {
   daypartMorningStart: string;
   daypartAfternoonStart: string;
   daypartEveningStart: string;
+  tagline: string;
+  isShareCardPublic: boolean;
+  shareCardLastUpdated: Date | null;
+  username: string;
 }
 
 /**
@@ -112,6 +116,10 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
     daypartMorningStart: user.daypartMorningStart,
     daypartAfternoonStart: user.daypartAfternoonStart,
     daypartEveningStart: user.daypartEveningStart,
+    tagline: user.tagline,
+    isShareCardPublic: user.isShareCardPublic,
+    shareCardLastUpdated: user.shareCardLastUpdated,
+    username: user.username,
   };
 }
 

@@ -101,3 +101,5 @@ public/*.tar.gz
 
 # Kilo Code worktree artifacts (contains AI assistant logs that may include secrets)
 .kilo/
+
+.kilo/

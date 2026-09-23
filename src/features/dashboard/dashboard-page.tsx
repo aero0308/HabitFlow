@@ -15,6 +15,7 @@ import { useBadHabits } from "@/features/habits/hooks/useBadHabits";
 import { useOffModes } from "@/hooks/use-off-modes";
 import { WeeklyReviewDialog } from "@/features/dashboard/weekly-review-dialog";
 import { CleanStreaksCard } from "@/features/dashboard/CleanStreaksCard";
+import { FlipProgressCard, type YesterdayData } from "@/features/dashboard/components/FlipProgressCard";
 import { FlowingUnderline } from "@/components/shared/flowing-underline";
 import { MoodLoggerCard } from "@/features/mood/mood-logger-card";
 import { MoodModal } from "@/features/mood/mood-modal";
@@ -313,25 +314,20 @@ export function DashboardPage() {
 
       {/* Top row: progress ring + weekly chart */}
       <div className="grid gap-4 md:grid-cols-3">
-        {/* Progress ring card */}
-        <Card className="p-6 flex flex-col items-center justify-center relative overflow-hidden">
-          <div className="absolute -top-8 -right-8 w-32 h-32 bg-emerald-500/5 rounded-full blur-2xl" />
-          {isLoading ? (
-            <Skeleton className="h-36 w-36 rounded-full" />
-          ) : (
-            <>
-              <ProgressRing pct={dash?.completionPct ?? 0} />
-              <div className="mt-4 text-center relative">
-                <div className="text-sm font-medium">
-                  {dash?.completedToday ?? 0} / {dash?.scheduledToday ?? 0} habits done
-                </div>
-                <div className="text-xs text-muted-foreground mt-0.5">
-                  {dash?.totalProgress ?? 0} / {dash?.totalTarget ?? 0} total progress
-                </div>
-              </div>
-            </>
-          )}
-        </Card>
+        {/* Progress ring card — now wraps in FlipProgressCard so it flips
+            on click to reveal yesterday's summary. The existing ProgressRing
+            is passed in as `progressRing` so the front face stays identical. */}
+        <FlipProgressCard
+          todayPct={dash?.completionPct ?? 0}
+          todayCompleted={dash?.completedToday ?? 0}
+          todayScheduled={dash?.scheduledToday ?? 0}
+          todayTotalProgress={dash?.totalProgress ?? 0}
+          todayTotalTarget={dash?.totalTarget ?? 0}
+          yesterday={(dash as { yesterday?: YesterdayData } | null | undefined)?.yesterday ?? null}
+          progressRing={<ProgressRing pct={dash?.completionPct ?? 0} />}
+          isLoading={isLoading}
+          skeleton={<Skeleton className="h-36 w-36 rounded-full" />}
+        />
 
         {/* Weekly summary card */}
         <Card className="p-6 md:col-span-2">

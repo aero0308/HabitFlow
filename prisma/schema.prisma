@@ -27,6 +27,11 @@ model User {
   daypartMorningStart   String   @default("00:00")
   daypartAfternoonStart String   @default("11:00")
   daypartEveningStart   String   @default("18:00")
+  // ---- Share Card feature ----
+  tagline               String   @default("")
+  isShareCardPublic     Boolean  @default(false)
+  shareCardLastUpdated  DateTime?
+  username             String   @default("")
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 

@@ -192,7 +192,7 @@ export const api = {
 
   // ---- settings ----
   getSettings: () => request<User>("/settings"),
-  updateSettings: (body: Partial<Pick<User, "name" | "firstName" | "lastName" | "timezone" | "emailRemindersEnabled" | "browserRemindersEnabled" | "reminderTime" | "avatarUrl" | "daypartMorningStart" | "daypartAfternoonStart" | "daypartEveningStart">>) =>
+  updateSettings: (body: Partial<Pick<User, "name" | "firstName" | "lastName" | "timezone" | "emailRemindersEnabled" | "browserRemindersEnabled" | "reminderTime" | "avatarUrl" | "daypartMorningStart" | "daypartAfternoonStart" | "daypartEveningStart" | "tagline" | "isShareCardPublic" | "username">>) =>
     request<User>("/settings", { method: "PATCH", body: JSON.stringify(body) }),
 
   // ---- user danger zone ----

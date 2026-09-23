@@ -177,6 +177,18 @@ export function AppShell({ children }: { children: ReactNode }) {
             <div className="hidden sm:block">
               <SearchBar />
             </div>
+            {/* Mobile-only Insights button — placed beside the theme toggle
+                so users can reach Insights without opening the avatar dropdown.
+                Hidden on sm+ because the sidebar has a full Insights nav item. */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => go({ name: "insights" })}
+              aria-label="Insights"
+              className="sm:hidden h-9 w-9"
+            >
+              <Lightbulb className="h-4 w-4" />
+            </Button>
             <ThemeToggle />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

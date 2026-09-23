@@ -14,6 +14,10 @@ export interface User {
   daypartMorningStart: string;
   daypartAfternoonStart: string;
   daypartEveningStart: string;
+  tagline: string;
+  isShareCardPublic: boolean;
+  shareCardLastUpdated: string | null;
+  username: string;
 }
 
 export type Frequency = "daily" | "weekly" | "custom";
@@ -212,6 +216,7 @@ export interface AchievementsResponse {
     maxLongestStreak: number;
     perfectDays: number;
     maxTotalCompletions: number;
+    totalActiveDays: number;
   };
 }
 

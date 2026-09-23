@@ -30,6 +30,10 @@ function publicUser(u: {
   daypartMorningStart: string;
   daypartAfternoonStart: string;
   daypartEveningStart: string;
+  tagline: string;
+  isShareCardPublic: boolean;
+  shareCardLastUpdated: Date | null;
+  username: string;
 }) {
   return {
     id: u.id,
@@ -45,6 +49,10 @@ function publicUser(u: {
     daypartMorningStart: u.daypartMorningStart,
     daypartAfternoonStart: u.daypartAfternoonStart,
     daypartEveningStart: u.daypartEveningStart,
+    tagline: u.tagline,
+    isShareCardPublic: u.isShareCardPublic,
+    shareCardLastUpdated: u.shareCardLastUpdated ? u.shareCardLastUpdated.toISOString() : null,
+    username: u.username,
   };
 }
 

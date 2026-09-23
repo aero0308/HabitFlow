@@ -81,6 +81,46 @@ export async function GET_dashboard(req: Request) {
     const completionPct =
       scheduledToday === 0 ? 0 : Math.round((completedToday / scheduledToday) * 100);
 
+    // --- Yesterday's summary (for the flip-side of the dashboard progress card) ---
+    // Compute yesterday's date string + Date object, then fetch yesterday's
+    // checkins + figure out which habits were scheduled yesterday.
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().slice(0, 10);
+
+    const checkinsYesterday = habitIds.length
+      ? await db.checkin.findMany({ where: { habitId: { in: habitIds }, date: yesterdayStr } })
+      : [];
+
+    const yesterdayCheckinMap = new Map<string, { count: number; note: string }>();
+    for (const c of checkinsYesterday) {
+      yesterdayCheckinMap.set(c.habitId, { count: c.count, note: c.note });
+    }
+
+    const yesterdayScheduledHabits = habits.filter((h) => isHabitScheduled(h, yesterday));
+    const yesterdayCompletedHabits = yesterdayScheduledHabits.filter((h) => {
+      const ci = yesterdayCheckinMap.get(h.id);
+      return ci && ci.count >= h.targetCount;
+    });
+    const yesterdayScheduled = yesterdayScheduledHabits.length;
+    const yesterdayCompleted = yesterdayCompletedHabits.length;
+    const yesterdayCompletionPct =
+      yesterdayScheduled === 0 ? 0 : Math.round((yesterdayCompleted / yesterdayScheduled) * 100);
+
+    // Best streak yesterday = the habit with the highest current streak that
+    // was completed yesterday. Only meaningful if user did at least 1 habit.
+    const bestStreakYesterday = yesterdayCompletedHabits.length > 0
+      ? yesterdayCompletedHabits
+          .map((h) => ({
+            name: h.name,
+            icon: h.icon,
+            currentStreak: h.streak?.currentStreak ?? 0,
+          }))
+          .sort((a, b) => b.currentStreak - a.currentStreak)[0]
+      : null;
+
+    const isPerfectDayYesterday = yesterdayScheduled > 0 && yesterdayCompleted === yesterdayScheduled;
+
     // Quick streak leaderboard (current streaks)
     const streaks = habits
       .map((h) => ({
@@ -104,6 +144,15 @@ export async function GET_dashboard(req: Request) {
       todaysHabits,
       streaks,
       totalHabits: habits.length,
+      // Yesterday's summary (for the flip side of the progress card)
+      yesterday: {
+        date: yesterdayStr,
+        scheduled: yesterdayScheduled,
+        completed: yesterdayCompleted,
+        completionPct: yesterdayCompletionPct,
+        isPerfectDay: isPerfectDayYesterday,
+        bestStreak: bestStreakYesterday,
+      },
     });
   })();
 }
@@ -662,6 +711,8 @@ export async function GET_achievements() {
     const maxCurrentStreak = Math.max(0, ...habits.map((h) => h.streak?.currentStreak ?? 0));
     const maxLongestStreak = Math.max(0, ...habits.map((h) => h.streak?.longestStreak ?? 0));
     const maxTotalCompletions = Math.max(0, ...habits.map((h) => h.streak?.totalCompletions ?? 0));
+    // Distinct days with at least 1 check-in (used for "Days Tracked" on the share card)
+    const totalActiveDays = new Set(allCheckins.map((c) => c.date)).size;
 
     // Perfect days: days where ALL scheduled habits were completed
     const dayMap = new Map<string, { scheduled: number; completed: number }>();
@@ -899,6 +950,7 @@ export async function GET_achievements() {
         maxLongestStreak,
         perfectDays,
         maxTotalCompletions,
+        totalActiveDays,
       },
     });
   })();
