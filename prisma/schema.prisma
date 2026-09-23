@@ -1,0 +1,303 @@
+// Prisma schema for Habit Tracker
+// learn more: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                    String   @id @default(cuid())
+  email                 String   @unique
+  hashedPassword        String
+  name                  String
+  firstName             String   @default("")
+  lastName              String   @default("")
+  avatarUrl             String   @default("")
+  timezone              String   @default("UTC")
+  emailRemindersEnabled Boolean  @default(true)
+  emailUnsubscribeToken String?  @unique
+  lastWeeklyEmailAt     DateTime?
+  reminderTime          String   @default("09:00")
+  browserRemindersEnabled Boolean @default(false)
+  daypartMorningStart   String   @default("00:00")
+  daypartAfternoonStart String   @default("11:00")
+  daypartEveningStart   String   @default("18:00")
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  habits      Habit[]
+  sessions    Session[]
+  moodEntries MoodEntry[]
+  offModes    OffMode[]
+  uploads     UserUpload[]
+  weeklyInsights WeeklyInsight[]
+  weeklyCoachLetters WeeklyCoachLetter[]
+  chatConversations ChatConversation[]
+  habitSuggestionLogs HabitSuggestionLog[]
+  badHabits    BadHabit[]
+
+  // AI Coach (BYOK — Bring Your Own Key)
+  aiProvider              String?  // "groq" | "nvidia"
+  aiModel                 String?  // e.g. "nvidia/nemotron-3-super-120b-a12b" (NVIDIA has multiple models)
+  aiApiKeyEncrypted       String?  // AES-256-GCM encrypted, never stored raw
+  aiWeeklyInsightsEnabled Boolean  @default(true)
+}
+
+model WeeklyInsight {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  weekStart   String   // YYYY-MM-DD (Monday of the week, stored as text for SQLite)
+  narrative   String   // markdown, 2-3 paragraphs
+  model       String   // e.g. "gpt-4o-mini"
+  generatedAt DateTime @default(now())
+  readAt      DateTime?
+
+  @@unique([userId, weekStart])
+  @@index([userId, weekStart])
+}
+
+model WeeklyCoachLetter {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  weekStart    String   // YYYY-MM-DD (Monday of the week)
+  subject      String
+  bodyMarkdown String
+  sections     String   // JSON string: { greeting, intro, whatsWorking, whereYouSlipped, experiment, closing }
+  model        String
+  tokensUsed   Int?
+  generatedAt  DateTime @default(now())
+  readAt       DateTime?
+  emailedAt    DateTime?
+  shareToken   String?  @unique
+
+  @@unique([userId, weekStart])
+  @@index([userId, weekStart])
+}
+
+model ChatConversation {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String   @default("New chat")
+  mode        String   @default("data") // "data" | "general"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  archivedAt  DateTime?
+
+  messages    ChatMessage[]
+
+  @@index([userId, mode, updatedAt])
+  @@index([userId, updatedAt])
+}
+
+model ChatMessage {
+  id             String   @id @default(cuid())
+  conversationId String
+  conversation   ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           String   // "user" | "assistant"
+  content        String
+  contextSnapshot String?  // JSON string of context passed for this turn
+  model          String?
+  tokensUsed     Int?
+  createdAt      DateTime @default(now())
+
+  @@index([conversationId, createdAt])
+}
+
+model HabitSuggestionLog {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  goal        String
+  suggested   String   // JSON array of suggested habits
+  accepted    String?  // JSON array of accepted habits (may differ if edited)
+  model       String
+  tokensUsed  Int?
+  createdAt   DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model UserUpload {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  url       String
+  duration  Int?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Session {
+  // Refresh token sessions for JWT auth
+  id           String   @id @default(cuid())
+  userId       String
+  refreshToken String   @unique
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Habit {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  description String   @default("")
+  color       String   @default("#10b981")
+  icon        String   @default("✅")
+  frequency   String   @default("daily")
+  customDays  String   @default("")
+  targetCount Int      @default(1)
+  startDate   DateTime @default(now())
+  position    Int      @default(0)
+  isArchived  Boolean  @default(false)
+  category    String   @default("")
+  timeOfDay   String   @default("ANY_TIME") // ANY_TIME | MORNING | AFTERNOON | EVENING
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  checkins Checkin[]
+  streak   Streak?
+  freezes  HabitFreeze[]
+  badHabitReplacements BadHabit[]
+
+  @@index([userId])
+}
+
+model Checkin {
+  id        String   @id @default(cuid())
+  habitId   String
+  date      String // YYYY-MM-DD (stored as text for SQLite, normalized)
+  count     Int      @default(1)
+  note      String   @default("")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  habit Habit @relation(fields: [habitId], references: [id], onDelete: Cascade)
+
+  @@unique([habitId, date])
+  @@index([habitId])
+  @@index([date])
+}
+
+// Streak freeze: a day the user "froze" so a missed scheduled day doesn't break their streak.
+model HabitFreeze {
+  id        String   @id @default(cuid())
+  habitId   String
+  date      String // YYYY-MM-DD
+  createdAt DateTime @default(now())
+
+  habit Habit @relation(fields: [habitId], references: [id], onDelete: Cascade)
+
+  @@unique([habitId, date])
+  @@index([habitId])
+}
+
+model Streak {
+  // Denormalized streak cache, updated on check-in
+  habitId           String   @id
+  currentStreak     Int      @default(0)
+  longestStreak     Int      @default(0)
+  lastCompletedDate String?  // YYYY-MM-DD
+  totalCompletions  Int      @default(0)
+  updatedAt         DateTime @updatedAt
+
+  habit Habit @relation(fields: [habitId], references: [id], onDelete: Cascade)
+}
+
+model MoodEntry {
+  id        String   @id @default(cuid())
+  userId    String
+  date      String   // YYYY-MM-DD (stored as text for SQLite)
+  score     Int      // 1-10
+  note      String   @default("")
+  tags      String   @default("") // comma-separated e.g. "tired,motivated"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@index([userId, date])
+}
+
+model OffMode {
+  id        String   @id @default(cuid())
+  userId    String
+  startDate String   // YYYY-MM-DD
+  endDate   String   // YYYY-MM-DD
+  reason    String   @default("")
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, startDate, endDate])
+}
+
+// ---- Break Bad Habits feature ----
+// Users track habits they want to QUIT (smoking, social media, junk food, ...)
+// with clean streaks, money/time saved, trigger insights, milestone celebrations.
+// Success = NOT doing the thing. Design is supportive — NEVER shaming.
+
+model BadHabit {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name            String
+  icon            String
+  color           String
+  quitDate        DateTime
+  reason          String?
+  triggers        String   @default("")  // comma-separated (SQLite doesn't have String[] — store as CSV)
+  costPerDay      Float?
+  currency        String   @default("USD")
+  minutesPerDay   Int?
+  replacementHabitId String?
+  replacementHabit   Habit? @relation(fields: [replacementHabitId], references: [id])
+  isArchived      Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  slips           BadHabitSlip[]
+  milestones      BadHabitMilestone[]
+
+  @@index([userId, isArchived])
+}
+
+model BadHabitSlip {
+  id          String   @id @default(cuid())
+  badHabitId  String
+  badHabit    BadHabit @relation(fields: [badHabitId], references: [id], onDelete: Cascade)
+  date        String   // YYYY-MM-DD (SQLite text)
+  trigger     String?
+  note        String?
+  createdAt   DateTime @default(now())
+
+  @@index([badHabitId, date])
+  @@unique([badHabitId, date])
+}
+
+model BadHabitMilestone {
+  id          String   @id @default(cuid())
+  badHabitId  String
+  badHabit    BadHabit @relation(fields: [badHabitId], references: [id], onDelete: Cascade)
+  type        String   // "days" | "money" | "time"
+  value       Int
+  label       String
+  unlockedAt  DateTime @default(now())
+
+  @@index([badHabitId])
+}

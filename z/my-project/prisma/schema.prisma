@@ -1,0 +1,159 @@
+// Prisma schema for Habit Tracker
+// learn more: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                    String   @id @default(cuid())
+  email                 String   @unique
+  hashedPassword        String
+  name                  String
+  firstName             String   @default("")
+  lastName              String   @default("")
+  avatarUrl             String   @default("")
+  timezone              String   @default("UTC")
+  emailRemindersEnabled Boolean  @default(true)
+  emailUnsubscribeToken String?  @unique
+  lastWeeklyEmailAt     DateTime?
+  reminderTime          String   @default("09:00")
+  browserRemindersEnabled Boolean @default(false)
+  daypartMorningStart   String   @default("00:00")
+  daypartAfternoonStart String   @default("11:00")
+  daypartEveningStart   String   @default("18:00")
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  habits      Habit[]
+  sessions    Session[]
+  moodEntries MoodEntry[]
+  offModes    OffMode[]
+  uploads     UserUpload[]
+}
+
+model UserUpload {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  url       String
+  duration  Int?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Session {
+  // Refresh token sessions for JWT auth
+  id           String   @id @default(cuid())
+  userId       String
+  refreshToken String   @unique
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Habit {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  description String   @default("")
+  color       String   @default("#10b981")
+  icon        String   @default("✅")
+  frequency   String   @default("daily")
+  customDays  String   @default("")
+  targetCount Int      @default(1)
+  startDate   DateTime @default(now())
+  position    Int      @default(0)
+  isArchived  Boolean  @default(false)
+  category    String   @default("")
+  timeOfDay   String   @default("ANY_TIME") // ANY_TIME | MORNING | AFTERNOON | EVENING
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  checkins Checkin[]
+  streak   Streak?
+  freezes  HabitFreeze[]
+
+  @@index([userId])
+}
+
+model Checkin {
+  id        String   @id @default(cuid())
+  habitId   String
+  date      String // YYYY-MM-DD (stored as text for SQLite, normalized)
+  count     Int      @default(1)
+  note      String   @default("")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  habit Habit @relation(fields: [habitId], references: [id], onDelete: Cascade)
+
+  @@unique([habitId, date])
+  @@index([habitId])
+  @@index([date])
+}
+
+// Streak freeze: a day the user "froze" so a missed scheduled day doesn't break their streak.
+model HabitFreeze {
+  id        String   @id @default(cuid())
+  habitId   String
+  date      String // YYYY-MM-DD
+  createdAt DateTime @default(now())
+
+  habit Habit @relation(fields: [habitId], references: [id], onDelete: Cascade)
+
+  @@unique([habitId, date])
+  @@index([habitId])
+}
+
+model Streak {
+  // Denormalized streak cache, updated on check-in
+  habitId           String   @id
+  currentStreak     Int      @default(0)
+  longestStreak     Int      @default(0)
+  lastCompletedDate String?  // YYYY-MM-DD
+  totalCompletions  Int      @default(0)
+  updatedAt         DateTime @updatedAt
+
+  habit Habit @relation(fields: [habitId], references: [id], onDelete: Cascade)
+}
+
+model MoodEntry {
+  id        String   @id @default(cuid())
+  userId    String
+  date      String   // YYYY-MM-DD (stored as text for SQLite)
+  score     Int      // 1-10
+  note      String   @default("")
+  tags      String   @default("") // comma-separated e.g. "tired,motivated"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@index([userId, date])
+}
+
+model OffMode {
+  id        String   @id @default(cuid())
+  userId    String
+  startDate String   // YYYY-MM-DD
+  endDate   String   // YYYY-MM-DD
+  reason    String   @default("")
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, startDate, endDate])
+}

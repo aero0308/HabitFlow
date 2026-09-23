@@ -1,0 +1,289 @@
+"use client";
+
+import { useMemo, useCallback } from "react";
+import {
+  Sparkles,
+  RefreshCw,
+  Check,
+  AlertCircle,
+  Loader2,
+  ArrowRight,
+} from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { useNav } from "@/lib/nav-store";
+import { useSuggestions } from "@/features/habits/hooks/useSuggestions";
+import { GoalInputStep } from "@/features/habits/components/GoalInputStep";
+import { SuggestionSkeleton } from "@/features/habits/components/SuggestionSkeleton";
+import { SuggestionCard } from "@/features/habits/components/SuggestionCard";
+import { GlowingBorder } from "@/features/insights/components/GlowingBorder";
+import { cn } from "@/lib/utils";
+
+interface HabitSuggestDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  /** Called when the user picks "Skip and create manually". */
+  onSkipToManual?: () => void;
+}
+
+/**
+ * HabitSuggestDialog — the main entry point for the AI habit-suggestions flow.
+ *
+ * State machine driven by the `useSuggestions` hook:
+ *   input → loading → results → (accept | regenerate | cancel)
+ *
+ * Errors:
+ *   - 402 NO_API_KEY → violet banner with "Add AI key →" button (deep link to Settings)
+ *   - 429 RATE_LIMITED → amber inline message
+ *   - other → generic red banner with Try again button
+ */
+export function HabitSuggestDialog({
+  open,
+  onOpenChange,
+  onSkipToManual,
+}: HabitSuggestDialogProps) {
+  const { go } = useNav();
+  const {
+    phase,
+    goal,
+    suggestions,
+    selectedIndices,
+    model,
+    error,
+    accepting,
+    generate,
+    accept,
+    reset,
+    cancel,
+    setGoal,
+    patchSuggestion,
+    toggleSelected,
+    clearSelected,
+  } = useSuggestions();
+
+  // Reset internal state when the dialog closes
+  const handleOpenChange = useCallback(
+    (openState: boolean) => {
+      if (!openState) {
+        cancel();
+        // Defer reset so the close animation can play
+        setTimeout(() => reset(), 200);
+      }
+      onOpenChange(openState);
+    },
+    [cancel, reset, onOpenChange],
+  );
+
+  const handleGenerate = useCallback(() => {
+    generate(goal);
+  }, [generate, goal]);
+
+  const handleRegenerate = useCallback(() => {
+    clearSelected();
+    generate(goal);
+  }, [generate, goal, clearSelected]);
+
+  const handleAccept = useCallback(() => {
+    if (!suggestions) return;
+    const picked = suggestions.filter((_, i) => selectedIndices.has(i));
+    if (picked.length === 0) return;
+    accept(picked);
+    onOpenChange(false);
+  }, [suggestions, selectedIndices, accept, onOpenChange]);
+
+  const handleSkip = useCallback(() => {
+    onOpenChange(false);
+    onSkipToManual?.();
+  }, [onOpenChange, onSkipToManual]);
+
+  // ---- Error banner rendering --------------------------------------------
+
+  const noApiKey = error?.code === "NO_API_KEY";
+  const isRateLimited =
+    error?.code === "RATE_LIMITED" ||
+    error?.code === "PROVIDER_RATE_LIMITED";
+  const isInvalidKey = error?.code === "INVALID_KEY";
+
+  const errorBanner = useMemo(() => {
+    if (!error) return null;
+    if (noApiKey || isInvalidKey) {
+      return (
+        <div
+          className={cn(
+            "rounded-lg p-3 flex items-start gap-2.5",
+            isInvalidKey
+              ? "bg-red-500/5 border border-red-500/20"
+              : "bg-violet-500/5 border border-violet-500/20",
+          )}
+        >
+          <AlertCircle
+            className={cn(
+              "w-4 h-4 mt-0.5 flex-shrink-0",
+              isInvalidKey ? "text-red-500" : "text-violet-500",
+            )}
+          />
+          <div className="flex-1 text-sm">
+            <p className="text-foreground">{error.message}</p>
+            <button
+              type="button"
+              onClick={() => {
+                onOpenChange(false);
+                go({ name: "settings" });
+              }}
+              className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-violet-600 dark:text-violet-300 hover:underline"
+            >
+              Open Settings <ArrowRight className="w-3 h-3" />
+            </button>
+          </div>
+        </div>
+      );
+    }
+    if (isRateLimited) {
+      return (
+        <div className="rounded-lg p-3 flex items-start gap-2.5 bg-amber-500/5 border border-amber-500/20">
+          <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0 text-amber-500" />
+          <p className="text-sm text-foreground">{error.message}</p>
+        </div>
+      );
+    }
+    return (
+      <div className="rounded-lg p-3 flex items-start gap-2.5 bg-red-500/5 border border-red-500/20">
+        <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0 text-red-500" />
+        <div className="flex-1 text-sm">
+          <p className="text-foreground">{error.message}</p>
+          <button
+            type="button"
+            onClick={handleGenerate}
+            className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-violet-600 dark:text-violet-300 hover:underline"
+          >
+            <RefreshCw className="w-3 h-3" /> Try again
+          </button>
+        </div>
+      </div>
+    );
+  }, [
+    error,
+    noApiKey,
+    isInvalidKey,
+    isRateLimited,
+    handleGenerate,
+    onOpenChange,
+    go,
+  ]);
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="sm:max-w-2xl max-h-[88vh] p-0 overflow-hidden flex flex-col gap-0">
+        {/* Header (always visible) */}
+        <DialogHeader className="px-4 sm:px-6 pt-4 sm:pt-6 pb-2 sm:pb-3 text-left">
+          <DialogTitle className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-violet-500" />
+            AI Habit Suggestions
+          </DialogTitle>
+          <DialogDescription>
+            Tell us your goal — we&apos;ll suggest 3-5 specific, measurable habits.
+          </DialogDescription>
+        </DialogHeader>
+
+        <GlowingBorder className="mx-3 sm:mx-6 mb-4" rounded="rounded-xl">
+          <div className="bg-background p-3 sm:p-4">
+            {phase === "input" && (
+              <GoalInputStep
+                goal={goal}
+                onGoalChange={setGoal}
+                onGenerate={handleGenerate}
+                onSkip={handleSkip}
+                loading={false}
+                banner={errorBanner}
+              />
+            )}
+
+            {phase === "loading" && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="w-4 h-4 animate-spin text-violet-500" />
+                  <span>
+                    Thinking about &ldquo;{goal || "your goal"}&rdquo;…
+                  </span>
+                </div>
+                <SuggestionSkeleton />
+              </div>
+            )}
+
+            {phase === "results" && suggestions && (
+              <div className="space-y-2">
+                {/* Meta header */}
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-xs text-muted-foreground">
+                    {suggestions.length} suggestion
+                    {suggestions.length === 1 ? "" : "s"}
+                    {model ? ` · ${model}` : ""}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleRegenerate}
+                    disabled={accepting}
+                    className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+                  >
+                    <RefreshCw className="w-3 h-3" /> Regenerate
+                  </button>
+                </div>
+
+                <div className="max-h-[52vh] overflow-y-auto pr-1 -mr-1 space-y-2">
+                  {suggestions.map((s, i) => (
+                    <SuggestionCard
+                      key={i}
+                      suggestion={s}
+                      index={i}
+                      selected={selectedIndices.has(i)}
+                      onToggleSelected={() => toggleSelected(i)}
+                      onPatch={(patch) => patchSuggestion(i, patch)}
+                    />
+                  ))}
+                </div>
+
+                {/* Sticky footer */}
+                <div className="sticky bottom-0 -mx-3 sm:-mx-4 mt-2 px-3 sm:px-4 py-2.5 border-t bg-background/95 backdrop-blur-sm flex items-center justify-between gap-2">
+                  <span className="text-xs text-muted-foreground tabular-nums">
+                    {selectedIndices.size} selected
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleRegenerate}
+                      disabled={accepting}
+                    >
+                      <RefreshCw className="w-3 h-3 mr-1" /> Regenerate
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={handleAccept}
+                      disabled={accepting || selectedIndices.size === 0}
+                      className="bg-gradient-to-r from-violet-500 to-violet-600 hover:from-violet-400 hover:to-violet-500 text-white border-0"
+                    >
+                      {accepting ? (
+                        <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
+                      ) : (
+                        <Check className="w-3.5 h-3.5 mr-1" />
+                      )}
+                      Add {selectedIndices.size} habit{selectedIndices.size === 1 ? "" : "s"}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </GlowingBorder>
+      </DialogContent>
+    </Dialog>
+  );
+}
