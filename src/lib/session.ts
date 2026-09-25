@@ -9,15 +9,15 @@ export async function setAuthCookies(accessToken: string, refreshToken: string, 
   const store = await cookies();
   store.set(ACCESS_COOKIE, accessToken, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    secure: true,                  // ← was: process.env.NODE_ENV === "production"
+    sameSite: "none",              // ← was: "lax"
     path: "/",
     maxAge: 30 * 60, // 30 min
   });
   store.set(REFRESH_COOKIE, refreshToken, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    secure: true,                  // ← was: process.env.NODE_ENV === "production"
+    sameSite: "none",              // ← was: "lax"
     path: "/",
     maxAge: remember ? REFRESH_EXPIRES_MS / 1000 : undefined,
   });
